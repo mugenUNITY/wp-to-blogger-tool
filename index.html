@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>تحويل ملف ووردبريس إلى بلوجر</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- استبدال مكتبة xml2json بإصدار أحدث -->
-  <script src="https://cdn.jsdelivr.net/npm/x2js@3.5.0/x2js.min.js"></script>
+  <!-- تحميل مكتبة xml-js -->
+  <script src="https://cdn.jsdelivr.net/npm/xml-js@1.6.11/dist/xml-js.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
   <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
@@ -53,8 +53,8 @@
         return;
       }
 
-      if (typeof X2JS === 'undefined') {
-        status.textContent = 'خطأ: مكتبة X2JS غير متاحة.';
+      if (typeof xml2js === 'undefined') {
+        status.textContent = 'خطأ: مكتبة xml-js غير متاحة.';
         status.className = 'mt-4 text-center text-red-600';
         return;
       }
@@ -72,22 +72,20 @@
       reader.onload = async (e) => {
         try {
           const xmlText = e.target.result;
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
 
-          // استخدام مكتبة X2JS الجديدة
-          const x2js = new X2JS();
-          const json = x2js.xml2json(xmlDoc);
+          // تحويل XML إلى JSON باستخدام xml-js
+          const json = xml2js.xml2json(xmlText, { compact: true, spaces: 2 });
+          const parsedJson = JSON.parse(json);
 
           // تصحيح الأخطاء: طباعة البيانات للتأكد من التحويل
-          console.log('JSON المحول:', JSON.stringify(json, null, 2));
+          console.log('JSON المحول:', parsedJson);
 
           // استخراج بيانات القناة والمنشورات
-          const channel = json.rss?.channel || {};
+          const channel = parsedJson.rss?.channel || {};
           const posts = channel.item || [];
-          const blogTitle = channel.title || 'Converted Blog';
-          const blogLink = channel.link || 'https://example.com';
-          const updatedDate = channel.lastBuildDate || channel.pubDate || new Date().toISOString();
+          const blogTitle = channel.title?._text || 'Converted Blog';
+          const blogLink = channel.link?._text || 'https://example.com';
+          const updatedDate = channel.lastBuildDate?._text || channel.pubDate?._text || new Date().toISOString();
 
           // التحقق من وجود منشورات
           if (!posts || (Array.isArray(posts) && posts.length === 0) || (!Array.isArray(posts) && !posts.title)) {
@@ -110,13 +108,16 @@
   <ns0:link rel="alternate" href="${blogLink}" type="text/html"/>`;
 
           postsArray.forEach((post, index) => {
-            const title = post.title || 'بدون عنوان';
-            let content = post['content:encoded'] || post.description || '';
-            const pubDate = post.pubDate || new Date().toISOString();
+            const title = post.title?._text || post.title?._cdata || 'بدون عنوان';
+            let content = post['content:encoded']?._cdata || post['content:encoded']?._text || post.description?._text || '';
+            const pubDate = post.pubDate?._text || new Date().toISOString();
             const postId = `post-${index + 1}`;
-            const author = post['dc:creator'] || 'Unknown';
-            const postLink = post.link || blogLink;
+            const author = post['dc:creator']?._text || 'Unknown';
+            const postLink = post.link?._text || blogLink;
             let categories = Array.isArray(post.category) ? post.category : post.category ? [post.category] : [];
+
+            // تحويل التصنيفات إلى مصفوفة مع التعامل مع _text
+            categories = categories.map(cat => cat._text || cat).filter(cat => cat);
 
             categories = [
               ...categories,
