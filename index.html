@@ -102,11 +102,8 @@
             uri: channel.link?._text || 'https://example.com'
           };
 
-          // رأس الملف (مطابق للملف المرفق)
-          const header = `<?xml version="1.0" encoding="UTF-8"?>
-<ns0:feed xmlns:ns0="http://www.w3.org/2005/Atom">
-  <ns0:link rel="self" href="${channel.link._text || 'https://example.com'}" type="application/atom+xml"/>
-  <ns0:link rel="alternate" href="${channel.link._text || 'https://example.com'}" type="text/html"/>`;
+          // رأس الملف (مطابق للملف المرفق، بدون فراغات)
+          const header = `<?xml version="1.0" encoding="UTF-8"?><ns0:feed xmlns:ns0="http://www.w3.org/2005/Atom"><ns0:link rel="self" href="${channel.link._text || 'https://example.com'}" type="application/atom+xml"/><ns0:link rel="alternate" href="${channel.link._text || 'https://example.com'}" type="text/html"/>`;
 
           const footer = `</ns0:feed>`;
 
@@ -134,37 +131,23 @@
             updatedContent = formatContent(updatedContent);
             updatedContent = `${updatedContent}<br/><br/>Publication Date: <strong>${convertDate(pubDate)}</strong>`;
 
-            let entryXML = `
-  <ns0:entry>
-    <ns0:category term="http://schemas.google.com/blogger/2008/kind#post" scheme="http://schemas.google.com/g/2005#kind"/>
-    <ns0:id>${postId}</ns0:id>
-    <ns0:link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/>
-    <ns0:title type="html">${title}</ns0:title>
-    <ns0:content type="html"><![CDATA[${updatedContent}]]></ns0:content>
-    <ns0:published>${pubDate}</ns0:published>
-    <ns0:author>
-      <ns0:name>${author.name}</ns0:name>
-      <ns0:email>${author.email}</ns0:email>
-      <ns0:uri>${author.uri}</ns0:uri>
-    </ns0:author>`;
+            // إنشاء المقالة بدون فراغات أو أسطر فارغة
+            let entryXML = `<ns0:entry><ns0:category term="http://schemas.google.com/blogger/2008/kind#post" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${postId}</ns0:id><ns0:link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/><ns0:title type="html">${title}</ns0:title><ns0:content type="html"><![CDATA[${updatedContent}]]></ns0:content><ns0:published>${pubDate}</ns0:published><ns0:author><ns0:name>${author.name}</ns0:name><ns0:email>${author.email}</ns0:email><ns0:uri>${author.uri}</ns0:uri></ns0:author>`;
 
             // إضافة التصنيفات (labels)
             if (Array.isArray(categories)) {
               categories.forEach(category => {
                 const catName = category._text || category._cdata;
                 if (catName) {
-                  entryXML += `
-    <ns0:category term="S'in categoria"/>`;
+                  entryXML += `<ns0:category term="S'in categoria"/>`;
                 }
               });
             } else if (categories._text || categories._cdata) {
               const catName = categories._text || categories._cdata;
-              entryXML += `
-    <ns0:category term="S'in categoria"/>`;
+              entryXML += `<ns0:category term="S'in categoria"/>`;
             }
 
-            entryXML += `
-  </ns0:entry>`;
+            entryXML += `</ns0:entry>`;
 
             // استخراج وتحويل التعليقات (إن وجدت)
             const comments = item['wp:comment'] || [];
@@ -178,21 +161,7 @@
               const commentContent = comment['wp:comment_content']._text || comment['wp:comment_content']._cdata || '';
               const commentDate = comment['wp:comment_date']._text || pubDate;
 
-              commentsXML += `
-  <ns0:entry>
-    <ns0:author>
-      <ns0:name>${commentAuthor}</ns0:name>
-      <ns0:email>${commentEmail}</ns0:email>
-      <ns0:uri>${commentUrl}</ns0:uri>
-    </ns0:author>
-    <ns0:category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/>
-    <ns0:id>${commentId}</ns0:id>
-    <ns0:link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/>
-    <ns0:title type="text">${commentContent.substring(0, 50)}...</ns0:title>
-    <ns0:content type="html"><![CDATA[${commentContent}]]></ns0:content>
-    <ns0:published>${commentDate}</ns0:published>
-    <ns1:in-reply-to xmlns:ns1="http://purl.org/syndication/thread/1.0" ref="${postId}" type="application/atom+xml"/>
-  </ns0:entry>`;
+              commentsXML += `<ns0:entry><ns0:author><ns0:name>${commentAuthor}</ns0:name><ns0:email>${commentEmail}</ns0:email><ns0:uri>${commentUrl}</ns0:uri></ns0:author><ns0:category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${commentId}</ns0:id><ns0:link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/><ns0:title type="text">${commentContent.substring(0, 50)}...</ns0:title><ns0:content type="html"><![CDATA[${commentContent}]]></ns0:content><ns0:published>${commentDate}</ns0:published><ns1:in-reply-to xmlns:ns1="http://purl.org/syndication/thread/1.0" ref="${postId}" type="application/atom+xml"/></ns0:entry>`;
             });
 
             // إضافة المقالة والتعليقات إلى المحتوى الحالي
