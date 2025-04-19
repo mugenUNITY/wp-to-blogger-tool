@@ -1,0 +1,153 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تحويل ملف ووردبريس إلى بلوجر</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xml2json/0.12.0/xml2json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+    <h1 class="text-2xl font-bold mb-6 text-center">تحويل ملف ووردبريس إلى بلوجر</h1>
+    <div class="mb-4">
+      <label class="block text-gray-700 mb-2" for="xmlFile">اختر ملف XML (ووردبريس):</label>
+      <input type="file" id="xmlFile" accept=".xml" class="w-full p-2 border rounded">
+    </div>
+    <div class="mb-4">
+      <label class="block text-gray-700 mb-2" for="imagePath">مسار استضافة الصور (اختياري):</label>
+      <input type="text" id="imagePath" placeholder="مثال: https://your-host.com/images/" class="w-full p-2 border rounded">
+    </div>
+    <button id="convertBtn" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">تحويل وتنزيل</button>
+    <p id="status" class="mt-4 text-center text-gray-600"></p>
+  </div>
+
+  <script>
+    document.getElementById('convertBtn').addEventListener('click', async () => {
+      const fileInput = document.getElementById('xmlFile');
+      const imagePath = document.getElementById('imagePath').value;
+      const status = document.getElementById('status');
+
+      if (!fileInput.files.length) {
+        status.textContent = 'يرجى اختيار ملف XML!';
+        return;
+      }
+
+      status.textContent = 'جارٍ المعالجة...';
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+
+      reader.onload = async (e) => {
+        try {
+          const xmlText = e.target.result;
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+
+          // تحويل XML إلى JSON باستخدام xml2json
+          const json = xml2json(xmlDoc);
+
+          // استخراج المنشورات من JSON
+          const posts = json.rss?.channel?.item || [];
+          if (!Array.isArray(posts)) {
+            status.textContent = 'خطأ: لا توجد منشورات في الملف!';
+            return;
+          }
+
+          // إنشاء ملف XML متوافق مع بلوجر (Atom)
+          let atomXml = `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:thr="http://purl.org/syndication/thread/1.0">
+  <title>Converted Blog</title>
+  <updated>${new Date().toISOString()}</updated>
+  <id>tag:blogger.com,1999:blog-converted</id>
+  <generator uri="http://www.blogger.com">Blogger</generator>`;
+
+          posts.forEach((post, index) => {
+            const title = post.title || 'بدون عنوان';
+            let content = post['content:encoded'] || '';
+            const pubDate = post.pubDate || new Date().toISOString();
+            const postId = `post-${index + 1}`;
+            const author = post['dc:creator'] || 'Unknown';
+            const categories = Array.isArray(post.category) ? post.category : post.category ? [post.category] : [];
+
+            // تعديل روابط الصور إذا تم توفير مسار استضافة
+            if (imagePath) {
+              content = content.replace(/(<img[^>]+src=")([^"]+)(")/gi, `$1${imagePath}$2$3`);
+            }
+
+            // إنشاء إدخال Atom للمنشور
+            atomXml += `
+  <entry>
+    <id>tag:blogger.com,1999:${postId}</id>
+    <published>${pubDate}</published>
+    <updated>${pubDate}</updated>
+    <title type="text">${title}</title>
+    <content type="html"><![CDATA[${content}]]></content>
+    <author><name>${author}</name></author>
+    ${categories.map(cat => `<category term="${cat}" />`).join('')}
+    <thr:total>0</thr:total>
+  </entry>`;
+          });
+
+          atomXml += `</feed>`;
+
+          // التحقق من حجم الملف
+          const blob = new Blob([atomXml], { type: 'application/xml' });
+          if (blob.size > 1 * 1024 * 1024) { // أكبر من 1 ميغابايت
+            status.textContent = 'تحذير: الملف كبير جدًا (>1MB). يرجى تقسيم المحتوى يدويًا.';
+            return;
+          }
+
+          // تنزيل الملف
+          saveAs(blob, 'blogger_export.xml');
+          status.textContent = 'تم التحويل بنجاح! الملف جاهز للتنزيل.';
+        } catch (error) {
+          status.textContent = 'خطأ أثناء التحويل: ' + error.message;
+        }
+      };
+
+      reader.readAsText(file);
+    });
+  </script>
+</body>
+</html>
