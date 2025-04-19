@@ -56,8 +56,10 @@
       if (typeof xml2js === 'undefined') {
         status.textContent = 'خطأ: مكتبة xml-js غير متاحة.';
         status.className = 'mt-4 text-center text-red-600';
+        console.log('xml2js غير معرف:', window.xml2js);
         return;
       }
+
       if (typeof saveAs === 'undefined') {
         status.textContent = 'خطأ: مكتبة FileSaver غير متاحة.';
         status.className = 'mt-4 text-center text-red-600';
@@ -74,14 +76,14 @@
           const xmlText = e.target.result;
 
           // تحويل XML إلى JSON باستخدام xml-js
-          const json = xml2js.xml2json(xmlText, { compact: true, spaces: 2 });
-          const parsedJson = JSON.parse(json);
+          // استخدام xml2js مباشرة كدالة
+          const json = xml2js(xmlText, { compact: true, spaces: 2, nativeType: true });
 
           // تصحيح الأخطاء: طباعة البيانات للتأكد من التحويل
-          console.log('JSON المحول:', parsedJson);
+          console.log('JSON المحول:', json);
 
           // استخراج بيانات القناة والمنشورات
-          const channel = parsedJson.rss?.channel || {};
+          const channel = json.rss?.channel || {};
           const posts = channel.item || [];
           const blogTitle = channel.title?._text || 'Converted Blog';
           const blogLink = channel.link?._text || 'https://example.com';
