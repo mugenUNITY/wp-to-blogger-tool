@@ -8,16 +8,16 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
   <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
-    <h1 class="text-2xl font-bold mb-6 text-center">تحويل ملف ووردبريس إلى بلوجر</h1>
+    <h1 class="text-2xl font-bold mb-6 text-center text-blue-600">تحويل ملف ووردبريس إلى بلوجر</h1>
     <div class="mb-4">
-      <label class="block text-gray-700 mb-2" for="xmlFile">اختر ملف XML (ووردبريس):</label>
-      <input type="file" id="xmlFile" accept=".xml" class="w-full p-2 border rounded">
+      <label class="block text-gray-700 mb-2 font-medium" for="xmlFile">اختر ملف XML (ووردبريس):</label>
+      <input type="file" id="xmlFile" accept=".xml" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
     <div class="mb-4">
-      <label class="block text-gray-700 mb-2" for="imagePath">مسار استضافة الصور (اختياري):</label>
-      <input type="text" id="imagePath" placeholder="مثال: https://your-host.com/images/" class="w-full p-2 border rounded">
+      <label class="block text-gray-700 mb-2 font-medium" for="imagePath">مسار استضافة الصور (اختياري):</label>
+      <input type="text" id="imagePath" placeholder="مثال: https://your-host.com/images/" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <button id="convertBtn" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">تحويل وتنزيل</button>
+    <button id="convertBtn" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition duration-200">تحويل وتنزيل</button>
     <p id="status" class="mt-4 text-center text-gray-600"></p>
   </div>
 
@@ -40,10 +40,10 @@
         return node.prefix;
       }
       function escapeXmlChars(str) {
-        return "string" == typeof str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;").replace(/\//g, "&#x2F;") : str;
+        return "string" == typeof str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;").replace(/\//g, "&#x2F;") : str;
       }
       function unescapeXmlChars(str) {
-        return str.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&#x2F;/g, "/");
+        return str.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#x2F;/g, "/");
       }
       function toArrayAccessForm(obj, childName) {
         switch (config.arrayAccessForm) {
@@ -236,22 +236,15 @@
   <script>
     (function(global) {
       function saveAs(blob, name) {
-        // إنشاء رابط للتنزيل
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = name || 'download';
-
-        // محاكاة النقر على الرابط لتحميل الملف
         document.body.appendChild(link);
         link.click();
-
-        // تنظيف الموارد
         document.body.removeChild(link);
         setTimeout(() => window.URL.revokeObjectURL(url), 100);
       }
-
-      // تعيين الدالة إلى النطاق العام
       global.saveAs = saveAs;
     })(this);
   </script>
@@ -265,20 +258,23 @@
 
       if (!fileInput.files.length) {
         status.textContent = 'يرجى اختيار ملف XML!';
+        status.className = 'mt-4 text-center text-red-600';
         return;
       }
 
-      // التحقق من وجود المكتبات
       if (typeof xml2json === 'undefined') {
         status.textContent = 'خطأ: مكتبة xml2json غير متاحة.';
+        status.className = 'mt-4 text-center text-red-600';
         return;
       }
       if (typeof saveAs === 'undefined') {
         status.textContent = 'خطأ: مكتبة FileSaver غير متاحة.';
+        status.className = 'mt-4 text-center text-red-600';
         return;
       }
 
       status.textContent = 'جارٍ المعالجة...';
+      status.className = 'mt-4 text-center text-blue-600';
       const file = fileInput.files[0];
       const reader = new FileReader();
 
@@ -288,65 +284,87 @@
           const parser = new DOMParser();
           const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
 
-          // تحويل XML إلى JSON باستخدام xml2json
           const json = xml2json(xmlDoc);
+          const channel = json.rss?.channel || {};
+          const posts = channel.item || [];
+          const blogTitle = channel.title || 'Converted Blog';
+          const blogLink = channel.link || 'https://example.com';
+          const updatedDate = channel.lastBuildDate || new Date().toISOString();
 
-          // استخراج المنشورات من JSON
-          const posts = json.rss?.channel?.item || [];
-          if (!Array.isArray(posts)) {
+          if (!Array.isArray(posts) && !posts.title) {
             status.textContent = 'خطأ: لا توجد منشورات في الملف!';
+            status.className = 'mt-4 text-center text-red-600';
             return;
           }
 
-          // إنشاء ملف XML متوافق مع بلوجر (Atom)
-          let atomXml = `<?xml version="1.0" encoding="UTF-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom" xmlns:thr="http://purl.org/syndication/thread/1.0">
-  <title>Converted Blog</title>
-  <updated>${new Date().toISOString()}</updated>
-  <id>tag:blogger.com,1999:blog-converted</id>
-  <generator uri="http://www.blogger.com">Blogger</generator>`;
+          const postsArray = Array.isArray(posts) ? posts : [posts];
 
-          posts.forEach((post, index) => {
+          let atomXml = `<?xml version="1.0" encoding="UTF-8"?>
+<ns0:feed xmlns:ns0="http://www.w3.org/2005/Atom" xmlns:thr="http://purl.org/syndication/thread/1.0">
+  <ns0:title type="html">${blogTitle}</ns0:title>
+  <ns0:updated>${updatedDate}</ns0:updated>
+  <ns0:id>tag:blogger.com,1999:blog-converted</ns0:id>
+  <ns0:generator>Blogger</ns0:generator>
+  <ns0:link rel="self" href="${blogLink}" type="application/atom+xml"/>
+  <ns0:link rel="alternate" href="${blogLink}" type="text/html"/>`;
+
+          postsArray.forEach((post, index) => {
             const title = post.title || 'بدون عنوان';
-            let content = post['content:encoded'] || '';
+            let content = post['content:encoded'] || post.description || '';
             const pubDate = post.pubDate || new Date().toISOString();
             const postId = `post-${index + 1}`;
             const author = post['dc:creator'] || 'Unknown';
-            const categories = Array.isArray(post.category) ? post.category : post.category ? [post.category] : [];
+            const postLink = post.link || blogLink;
+            let categories = Array.isArray(post.category) ? post.category : post.category ? [post.category] : [];
 
-            // تعديل روابط الصور إذا تم توفير مسار استضافة
+            categories = [
+              ...categories,
+              'http://schemas.google.com/blogger/2008/kind#post',
+              'Sin categoría'
+            ];
+
             if (imagePath) {
-              content = content.replace(/(<img[^>]+src=")([^"]+)(")/gi, `$1${imagePath}$2$3`);
+              content = content.replace(/(<img[^>]+src=")([^"]+)(")/gi, (match, p1, p2, p3) => {
+                if (p2.startsWith('http://') || p2.startsWith('https://')) {
+                  return match;
+                }
+                return `${p1}${imagePath}${p2}${p3}`;
+              });
             }
 
-            // إنشاء إدخال Atom للمنشور
+            content = content.replace(/ /g, ' ').replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+
             atomXml += `
-  <entry>
-    <id>tag:blogger.com,1999:${postId}</id>
-    <published>${pubDate}</published>
-    <updated>${pubDate}</updated>
-    <title type="text">${title}</title>
-    <content type="html"><![CDATA[${content}]]></content>
-    <author><name>${author}</name></author>
-    ${categories.map(cat => `<category term="${cat}" />`).join('')}
+  <ns0:entry>
+    <ns0:id>tag:blogger.com,1999:${postId}</ns0:id>
+    <ns0:published>${pubDate}</ns0:published>
+    <ns0:updated>${pubDate}</ns0:updated>
+    <ns0:title type="text">${title}</ns0:title>
+    <ns0:content type="html"><![CDATA[${content}]]></ns0:content>
+    <ns0:author><ns0:name>${author}</ns0:name></ns0:author>
+    ${categories.map(cat => `<ns0:category term="${cat}" ${cat.startsWith('http') ? `scheme="${cat.split('#')[0]}"` : ''}/>`).join('')}
+    <ns0:link rel="self" href="${postLink}" type="application/atom+xml"/>
+    <ns0:link rel="alternate" href="${postLink}" type="text/html"/>
     <thr:total>0</thr:total>
-  </entry>`;
+  </ns0:entry>`;
           });
 
-          atomXml += `</feed>`;
+          atomXml += `</ns0:feed>`;
 
-          // التحقق من حجم الملف
           const blob = new Blob([atomXml], { type: 'application/xml' });
-          if (blob.size > 1 * 1024 * 1024) { // أكبر من 1 ميغابايت
+          if (blob.size > 1 * 1024 * 1024) {
             status.textContent = 'تحذير: الملف كبير جدًا (>1MB). يرجى تقسيم المحتوى يدويًا.';
+            status.className = 'mt-4 text-center text-orange-600';
             return;
           }
 
-          // تنزيل الملف
           saveAs(blob, 'blogger_export.xml');
           status.textContent = 'تم التحويل بنجاح! الملف جاهز للتنزيل.';
+          status.className = 'mt-4 text-center text-green-600';
         } catch (error) {
           status.textContent = 'خطأ أثناء التحويل: ' + error.message;
+          status.className = 'mt-4 text-center text-red-600';
+          console.error(error);
         }
       };
 
