@@ -60,7 +60,7 @@
         const videoIdMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
         const videoId = videoIdMatch ? videoIdMatch[1] : null;
         if (videoId) {
-          return `<div class="video-container"><iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>`;
+          return `<iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe><br/>`;
         }
         return url;
       });
@@ -69,7 +69,7 @@
     // تحويل الروابط النصية إلى روابط قابلة للنقر
     function linkify(content) {
       const urlPattern = /(https?:\/\/[^\s<]+)(?![^<]*>|[^<>]*<\/a>)/g;
-      return content.replace(urlPattern, '<a href="$1" target="_blank">$1</a>');
+      return content.replace(urlPattern, '<a href="$1" target="_blank">$1</a><br/>');
     }
 
     // استبدال روابط الصور بمسار جديد إذا تم تحديده
@@ -129,7 +129,7 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
   <!-- معلومات عامة عن الـ Feed -->
   <title>${channel.title._text || 'Converted Feed'}</title>
-  <id>ConvertedFeed</id>
+  <id>tag:blogger.com,1999:blog-123456789</id>
   <updated>${new Date().toISOString()}</updated>
   <generator>Custom Converter</generator>
   <link rel="self" href="${channel.link._text || 'https://example.com'}" type="application/atom+xml"/>
@@ -137,7 +137,7 @@
 
           // تحويل كل مقالة
           (Array.isArray(entries) ? entries : [entries]).forEach((item, index) => {
-            const postId = `post-${index}`; // معرف فريد للمقالة
+            const postId = `tag:blogger.com,1999:blog-123456789.post-${index}`; // معرف فريد للمقالة
             const title = item.title._text || item.title._cdata || 'بدون عنوان';
             const content = item['content:encoded']._cdata || item['content:encoded']._text || '';
             const pubDate = item.pubDate._text;
@@ -152,11 +152,8 @@
             let updatedContent = replaceImageUrls(content, imagePath);
             updatedContent = formatContent(updatedContent);
 
-            updatedContent = `
-              <h2>${title}</h2>
-              <div class="post-content">${updatedContent}</div>
-              <p class="post-date">تاريخ النشر: <strong>${convertDate(pubDate)}</strong></p>
-            `;
+            // تبسيط المحتوى ليكون مشابهًا للملف المقبول
+            updatedContent = `${updatedContent}<br/><br/>Publication Date: <strong>${convertDate(pubDate)}</strong>`;
 
             bloggerXML += `
   <!-- مقالة جديدة -->
@@ -168,6 +165,7 @@
     <updated>${pubDate}</updated>
     <link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/>
     <link rel="alternate" href="${item.link._text || 'https://example.com'}" type="text/html"/>
+    <category term="http://schemas.google.com/blogger/2008/kind#post" scheme="http://schemas.google.com/g/2005#kind"/>
     <author>
       <name>${author.name}</name>
       <email>${author.email}</email>
@@ -196,7 +194,7 @@
             const comments = item['wp:comment'] || [];
             (Array.isArray(comments) ? comments : [comments]).forEach((comment, commentIndex) => {
               if (!comment['wp:comment_content']) return; // تجاهل التعليقات الفارغة
-              const commentId = `${postId}.comment-${commentIndex}`;
+              const commentId = `tag:blogger.com,1999:${postId}.comment-${commentIndex}`;
               const commentAuthor = comment['wp:comment_author']?._text || 'Anonymous';
               const commentEmail = comment['wp:comment_author_email']?._text || 'anonymous@example.com';
               const commentUrl = comment['wp:comment_author_url']?._text || 'https://example.com';
