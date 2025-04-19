@@ -53,25 +53,6 @@
       return `${day}/${month}/${year} ${hours}:${minutes}`;
     }
 
-    // تحويل روابط الفيديو إلى iframe للتضمين في بلوجر
-    function embedVideo(content) {
-      const videoPattern = /\[embed\](https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/[^\s]+)\[\/embed\]/g;
-      return content.replace(videoPattern, (match, url) => {
-        const videoIdMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
-        const videoId = videoIdMatch ? videoIdMatch[1] : null;
-        if (videoId) {
-          return `<iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe><br/>`;
-        }
-        return url;
-      });
-    }
-
-    // تحويل الروابط النصية إلى روابط قابلة للنقر
-    function linkify(content) {
-      const urlPattern = /(https?:\/\/[^\s<]+)(?![^<]*>|[^<>]*<\/a>)/g;
-      return content.replace(urlPattern, '<a href="$1" target="_blank">$1</a><br/>');
-    }
-
     // استبدال روابط الصور بمسار جديد إذا تم تحديده
     function replaceImageUrls(content, imagePath) {
       if (!imagePath) return content;
@@ -82,11 +63,9 @@
       });
     }
 
-    // تنسيق المحتوى (الفيديو، الروابط، التواريخ)
+    // تنسيق المحتوى (إزالة تحويل الفيديوهات والروابط لتكون مطابقة للملف المرفق)
     function formatContent(content) {
       let formattedContent = content;
-      formattedContent = embedVideo(formattedContent);
-      formattedContent = linkify(formattedContent);
       const datePattern = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}/g;
       formattedContent = formattedContent.replace(datePattern, (date) => `<strong>${convertDate(date)}</strong>`);
       return formattedContent;
@@ -123,19 +102,13 @@
             uri: channel.link?._text || 'https://example.com'
           };
 
-          // رأس الملف
+          // رأس الملف (مطابق للملف المرفق)
           const header = `<?xml version="1.0" encoding="UTF-8"?>
-<!-- ملف XML محول لاستيراده إلى بلوجر -->
-<feed xmlns="http://www.w3.org/2005/Atom">
-  <!-- معلومات عامة عن الـ Feed -->
-  <title>${channel.title._text || 'Converted Feed'}</title>
-  <id>tag:blogger.com,1999:blog-123456789</id>
-  <updated>${new Date().toISOString()}</updated>
-  <generator>Custom Converter</generator>
-  <link rel="self" href="${channel.link._text || 'https://example.com'}" type="application/atom+xml"/>
-  <link rel="alternate" href="${channel.link._text || 'https://example.com'}" type="text/html"/>`;
+<ns0:feed xmlns:ns0="http://www.w3.org/2005/Atom">
+  <ns0:link rel="self" href="${channel.link._text || 'https://example.com'}" type="application/atom+xml"/>
+  <ns0:link rel="alternate" href="${channel.link._text || 'https://example.com'}" type="text/html"/>`;
 
-          const footer = `</feed>`;
+          const footer = `</ns0:feed>`;
 
           // الحد الأقصى لحجم الملف (1MB = 1048576 بايت)
           const MAX_FILE_SIZE = 1048576;
@@ -145,7 +118,7 @@
 
           // تحويل كل مقالة
           (Array.isArray(entries) ? entries : [entries]).forEach((item, index) => {
-            const postId = `tag:blogger.com,1999:blog-123456789.post-${index}`; // معرف فريد للمقالة
+            const postId = `post-${index}`; // معرف فريد للمقالة (مطابق للملف المرفق)
             const title = item.title._text || item.title._cdata || 'بدون عنوان';
             const content = item['content:encoded']._cdata || item['content:encoded']._text || '';
             const pubDate = item.pubDate._text;
@@ -162,21 +135,18 @@
             updatedContent = `${updatedContent}<br/><br/>Publication Date: <strong>${convertDate(pubDate)}</strong>`;
 
             let entryXML = `
-  <!-- مقالة جديدة -->
-  <entry>
-    <id>${postId}</id>
-    <title type="html">${title}</title>
-    <content type="html"><![CDATA[${updatedContent}]]></content>
-    <published>${pubDate}</published>
-    <updated>${pubDate}</updated>
-    <link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/>
-    <link rel="alternate" href="${item.link._text || 'https://example.com'}" type="text/html"/>
-    <category term="http://schemas.google.com/blogger/2008/kind#post" scheme="http://schemas.google.com/g/2005#kind"/>
-    <author>
-      <name>${author.name}</name>
-      <email>${author.email}</email>
-      <uri>${author.uri}</uri>
-    </author>`;
+  <ns0:entry>
+    <ns0:category term="http://schemas.google.com/blogger/2008/kind#post" scheme="http://schemas.google.com/g/2005#kind"/>
+    <ns0:id>${postId}</ns0:id>
+    <ns0:link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/>
+    <ns0:title type="html">${title}</ns0:title>
+    <ns0:content type="html"><![CDATA[${updatedContent}]]></ns0:content>
+    <ns0:published>${pubDate}</ns0:published>
+    <ns0:author>
+      <ns0:name>${author.name}</ns0:name>
+      <ns0:email>${author.email}</ns0:email>
+      <ns0:uri>${author.uri}</ns0:uri>
+    </ns0:author>`;
 
             // إضافة التصنيفات (labels)
             if (Array.isArray(categories)) {
@@ -184,24 +154,24 @@
                 const catName = category._text || category._cdata;
                 if (catName) {
                   entryXML += `
-    <category scheme="http://www.blogger.com/atom/ns#" term="${catName}" />`;
+    <ns0:category term="S'in categoria"/>`;
                 }
               });
             } else if (categories._text || categories._cdata) {
               const catName = categories._text || categories._cdata;
               entryXML += `
-    <category scheme="http://www.blogger.com/atom/ns#" term="${catName}" />`;
+    <ns0:category term="S'in categoria"/>`;
             }
 
             entryXML += `
-  </entry>`;
+  </ns0:entry>`;
 
             // استخراج وتحويل التعليقات (إن وجدت)
             const comments = item['wp:comment'] || [];
             let commentsXML = '';
             (Array.isArray(comments) ? comments : [comments]).forEach((comment, commentIndex) => {
               if (!comment['wp:comment_content']) return; // تجاهل التعليقات الفارغة
-              const commentId = `tag:blogger.com,1999:${postId}.comment-${commentIndex}`;
+              const commentId = `${postId}.comment-${commentIndex}`;
               const commentAuthor = comment['wp:comment_author']?._text || 'Anonymous';
               const commentEmail = comment['wp:comment_author_email']?._text || 'anonymous@example.com';
               const commentUrl = comment['wp:comment_author_url']?._text || 'https://example.com';
@@ -209,20 +179,20 @@
               const commentDate = comment['wp:comment_date']._text || pubDate;
 
               commentsXML += `
-  <!-- تعليق جديد -->
-  <entry>
-    <id>${commentId}</id>
-    <title type="text">${commentContent.substring(0, 50)}...</title>
-    <content type="html"><![CDATA[${commentContent}]]></content>
-    <published>${commentDate}</published>
-    <author>
-      <name>${commentAuthor}</name>
-      <email>${commentEmail}</email>
-      <uri>${commentUrl}</uri>
-    </author>
-    <category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/>
-    <in-reply-to ref="${postId}" type="application/atom+xml"/>
-  </entry>`;
+  <ns0:entry>
+    <ns0:author>
+      <ns0:name>${commentAuthor}</ns0:name>
+      <ns0:email>${commentEmail}</ns0:email>
+      <ns0:uri>${commentUrl}</ns0:uri>
+    </ns0:author>
+    <ns0:category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/>
+    <ns0:id>${commentId}</ns0:id>
+    <ns0:link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/>
+    <ns0:title type="text">${commentContent.substring(0, 50)}...</ns0:title>
+    <ns0:content type="html"><![CDATA[${commentContent}]]></ns0:content>
+    <ns0:published>${commentDate}</ns0:published>
+    <ns1:in-reply-to xmlns:ns1="http://purl.org/syndication/thread/1.0" ref="${postId}" type="application/atom+xml"/>
+  </ns0:entry>`;
             });
 
             // إضافة المقالة والتعليقات إلى المحتوى الحالي
@@ -232,7 +202,7 @@
             // حساب الحجم (بالبايت)
             const sizeInBytes = new TextEncoder().encode(tempContent).length;
 
-            if (sizeInBytes > MAX_FILE_SIZE) {
+            if (sizeInBytes > 1048576) {
               // إذا تجاوز الحجم 1MB، أغلق الملف الحالي وابدأ ملفًا جديدًا
               fileParts.push(currentFileContent + footer);
               currentFileContent = header + newContent;
