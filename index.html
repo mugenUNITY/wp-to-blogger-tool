@@ -76,7 +76,6 @@
           const xmlText = e.target.result;
 
           // تحويل XML إلى JSON باستخدام xml-js
-          // استخدام xml2js مباشرة كدالة
           const json = xml2js(xmlText, { compact: true, spaces: 2, nativeType: true });
 
           // تصحيح الأخطاء: طباعة البيانات للتأكد من التحويل
@@ -118,8 +117,13 @@
             const postLink = post.link?._text || blogLink;
             let categories = Array.isArray(post.category) ? post.category : post.category ? [post.category] : [];
 
-            // تحويل التصنيفات إلى مصفوفة مع التعامل مع _text
-            categories = categories.map(cat => cat._text || cat).filter(cat => cat);
+            // تحويل التصنيفات إلى سلاسل نصية مع التعامل مع _text و _cdata
+            categories = categories
+              .map(cat => {
+                if (typeof cat === 'string') return cat;
+                return cat._cdata || cat._text || '';
+              })
+              .filter(cat => cat && typeof cat === 'string');
 
             categories = [
               ...categories,
@@ -146,7 +150,7 @@
     <ns0:title type="text">${title}</ns0:title>
     <ns0:content type="html"><![CDATA[${content}]]></ns0:content>
     <ns0:author><ns0:name>${author}</ns0:name></ns0:author>
-    ${categories.map(cat => `<ns0:category term="${cat}" ${cat.startsWith('http') ? `scheme="${cat.split('#')[0]}"` : ''}/>`).join('')}
+    ${categories.map(cat => `<ns0:category term="${cat}" ${typeof cat === 'string' && cat.startsWith('http') ? `scheme="${cat.split('#')[0]}"` : ''}/>`).join('')}
     <ns0:link rel="self" href="${postLink}" type="application/atom+xml"/>
     <ns0:link rel="alternate" href="${postLink}" type="text/html"/>
     <thr:total>0</thr:total>
