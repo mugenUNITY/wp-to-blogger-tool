@@ -123,8 +123,8 @@
             uri: channel.link?._text || 'https://example.com'
           };
 
-          // إنشاء ملف XML جديد متوافق مع بلوجر
-          let bloggerXML = `<?xml version="1.0" encoding="UTF-8"?>
+          // رأس الملف
+          const header = `<?xml version="1.0" encoding="UTF-8"?>
 <!-- ملف XML محول لاستيراده إلى بلوجر -->
 <feed xmlns="http://www.w3.org/2005/Atom">
   <!-- معلومات عامة عن الـ Feed -->
@@ -134,6 +134,14 @@
   <generator>Custom Converter</generator>
   <link rel="self" href="${channel.link._text || 'https://example.com'}" type="application/atom+xml"/>
   <link rel="alternate" href="${channel.link._text || 'https://example.com'}" type="text/html"/>`;
+
+          const footer = `</feed>`;
+
+          // الحد الأقصى لحجم الملف (1MB = 1048576 بايت)
+          const MAX_FILE_SIZE = 1048576;
+          let currentFileContent = header;
+          let fileParts = [];
+          let partNumber = 1;
 
           // تحويل كل مقالة
           (Array.isArray(entries) ? entries : [entries]).forEach((item, index) => {
@@ -151,11 +159,9 @@
             // تنسيق المحتوى
             let updatedContent = replaceImageUrls(content, imagePath);
             updatedContent = formatContent(updatedContent);
-
-            // تبسيط المحتوى ليكون مشابهًا للملف المقبول
             updatedContent = `${updatedContent}<br/><br/>Publication Date: <strong>${convertDate(pubDate)}</strong>`;
 
-            bloggerXML += `
+            let entryXML = `
   <!-- مقالة جديدة -->
   <entry>
     <id>${postId}</id>
@@ -177,21 +183,22 @@
               categories.forEach(category => {
                 const catName = category._text || category._cdata;
                 if (catName) {
-                  bloggerXML += `
+                  entryXML += `
     <category scheme="http://www.blogger.com/atom/ns#" term="${catName}" />`;
                 }
               });
             } else if (categories._text || categories._cdata) {
               const catName = categories._text || categories._cdata;
-              bloggerXML += `
+              entryXML += `
     <category scheme="http://www.blogger.com/atom/ns#" term="${catName}" />`;
             }
 
-            bloggerXML += `
+            entryXML += `
   </entry>`;
 
             // استخراج وتحويل التعليقات (إن وجدت)
             const comments = item['wp:comment'] || [];
+            let commentsXML = '';
             (Array.isArray(comments) ? comments : [comments]).forEach((comment, commentIndex) => {
               if (!comment['wp:comment_content']) return; // تجاهل التعليقات الفارغة
               const commentId = `tag:blogger.com,1999:${postId}.comment-${commentIndex}`;
@@ -201,7 +208,7 @@
               const commentContent = comment['wp:comment_content']._text || comment['wp:comment_content']._cdata || '';
               const commentDate = comment['wp:comment_date']._text || pubDate;
 
-              bloggerXML += `
+              commentsXML += `
   <!-- تعليق جديد -->
   <entry>
     <id>${commentId}</id>
@@ -217,15 +224,33 @@
     <in-reply-to ref="${postId}" type="application/atom+xml"/>
   </entry>`;
             });
+
+            // إضافة المقالة والتعليقات إلى المحتوى الحالي
+            const newContent = entryXML + commentsXML;
+            const tempContent = currentFileContent + newContent;
+
+            // حساب الحجم (بالبايت)
+            const sizeInBytes = new TextEncoder().encode(tempContent).length;
+
+            if (sizeInBytes > MAX_FILE_SIZE) {
+              // إذا تجاوز الحجم 1MB، أغلق الملف الحالي وابدأ ملفًا جديدًا
+              fileParts.push(currentFileContent + footer);
+              currentFileContent = header + newContent;
+            } else {
+              currentFileContent = tempContent;
+            }
           });
 
-          bloggerXML += `
-</feed>`;
+          // إضافة المحتوى المتبقي كملف أخير
+          fileParts.push(currentFileContent + footer);
 
-          // تنزيل الملف
-          const blob = new Blob([bloggerXML], { type: 'application/xml' });
-          saveAs(blob, 'blogger-feed.xml');
-          status.textContent = 'تم التحويل بنجاح! جارٍ التنزيل...';
+          // تنزيل الملفات
+          fileParts.forEach((partContent, index) => {
+            const blob = new Blob([partContent], { type: 'application/xml' });
+            saveAs(blob, `blogger-feed-part${index + 1}.xml`);
+          });
+
+          status.textContent = `تم التحويل بنجاح! تم إنشاء ${fileParts.length} ملف${fileParts.length > 1 ? 'ات' : ''} وجارٍ التنزيل...`;
         } catch (error) {
           status.textContent = 'حدث خطأ أثناء التحويل: ' + error.message;
         }
