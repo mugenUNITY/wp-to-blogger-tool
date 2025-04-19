@@ -57,13 +57,12 @@
     function embedVideo(content) {
       const videoPattern = /\[embed\](https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/[^\s]+)\[\/embed\]/g;
       return content.replace(videoPattern, (match, url) => {
-        // استخراج معرف الفيديو من الرابط
         const videoIdMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
         const videoId = videoIdMatch ? videoIdMatch[1] : null;
         if (videoId) {
           return `<div class="video-container"><iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>`;
         }
-        return url; // إذا لم يتم العثور على معرف فيديو، أعد الرابط كما هو
+        return url;
       });
     }
 
@@ -86,13 +85,10 @@
     // تنسيق المحتوى (الفيديو، الروابط، التواريخ)
     function formatContent(content) {
       let formattedContent = content;
-      // تحويل روابط الفيديو
       formattedContent = embedVideo(formattedContent);
-      // تحويل الروابط النصية
       formattedContent = linkify(formattedContent);
-      // تنسيق التواريخ داخل المحتوى
       const datePattern = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}/g;
-      formattedContent = formattedContent.replace(datePattern, (date) => convertDate(date));
+      formattedContent = formattedContent.replace(datePattern, (date) => `<strong>${convertDate(date)}</strong>`);
       return formattedContent;
     }
 
@@ -117,43 +113,66 @@
         try {
           // تحويل XML إلى JSON باستخدام xml-js
           const json = xml2js(xmlContent, { compact: true, spaces: 2 });
-          const entries = json.rss.channel.item;
+          const channel = json.rss.channel;
+          const entries = channel.item;
+
+          // استخراج بيانات المؤلف العامة (إن وجدت)
+          const defaultAuthor = {
+            name: channel['dc:creator']?._text || 'Unknown Author',
+            email: 'unknown@example.com',
+            uri: channel.link?._text || 'https://example.com'
+          };
 
           // إنشاء ملف XML جديد متوافق مع بلوجر
           let bloggerXML = `<?xml version="1.0" encoding="UTF-8"?>
 <!-- ملف XML محول لاستيراده إلى بلوجر -->
 <feed xmlns="http://www.w3.org/2005/Atom">
   <!-- معلومات عامة عن الـ Feed -->
-  <title>Converted Feed</title>
+  <title>${channel.title._text || 'Converted Feed'}</title>
   <id>ConvertedFeed</id>
   <updated>${new Date().toISOString()}</updated>
-  <generator>Custom Converter</generator>`;
+  <generator>Custom Converter</generator>
+  <link rel="self" href="${channel.link._text || 'https://example.com'}" type="application/atom+xml"/>
+  <link rel="alternate" href="${channel.link._text || 'https://example.com'}" type="text/html"/>`;
 
           // تحويل كل مقالة
-          (Array.isArray(entries) ? entries : [entries]).forEach(item => {
+          (Array.isArray(entries) ? entries : [entries]).forEach((item, index) => {
+            const postId = `post-${index}`; // معرف فريد للمقالة
             const title = item.title._text || item.title._cdata || 'بدون عنوان';
             const content = item['content:encoded']._cdata || item['content:encoded']._text || '';
-            const pubDate = convertDate(item.pubDate._text);
+            const pubDate = item.pubDate._text;
             const categories = item.category || [];
+            const author = {
+              name: item['dc:creator']?._text || defaultAuthor.name,
+              email: defaultAuthor.email,
+              uri: item.link?._text || defaultAuthor.uri
+            };
 
-            // تنسيق المحتوى (الفيديو، الروابط، التواريخ)
+            // تنسيق المحتوى
             let updatedContent = replaceImageUrls(content, imagePath);
             updatedContent = formatContent(updatedContent);
 
-            // تنظيم المحتوى مع عنوان وفقرة
             updatedContent = `
               <h2>${title}</h2>
               <div class="post-content">${updatedContent}</div>
-              <p class="post-date">تاريخ النشر: ${pubDate}</p>
+              <p class="post-date">تاريخ النشر: <strong>${convertDate(pubDate)}</strong></p>
             `;
 
             bloggerXML += `
   <!-- مقالة جديدة -->
   <entry>
+    <id>${postId}</id>
     <title type="html">${title}</title>
     <content type="html"><![CDATA[${updatedContent}]]></content>
-    <published>${item.pubDate._text}</published>
-    <updated>${item.pubDate._text}</updated>`;
+    <published>${pubDate}</published>
+    <updated>${pubDate}</updated>
+    <link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/>
+    <link rel="alternate" href="${item.link._text || 'https://example.com'}" type="text/html"/>
+    <author>
+      <name>${author.name}</name>
+      <email>${author.email}</email>
+      <uri>${author.uri}</uri>
+    </author>`;
 
             // إضافة التصنيفات (labels)
             if (Array.isArray(categories)) {
@@ -172,6 +191,34 @@
 
             bloggerXML += `
   </entry>`;
+
+            // استخراج وتحويل التعليقات (إن وجدت)
+            const comments = item['wp:comment'] || [];
+            (Array.isArray(comments) ? comments : [comments]).forEach((comment, commentIndex) => {
+              if (!comment['wp:comment_content']) return; // تجاهل التعليقات الفارغة
+              const commentId = `${postId}.comment-${commentIndex}`;
+              const commentAuthor = comment['wp:comment_author']?._text || 'Anonymous';
+              const commentEmail = comment['wp:comment_author_email']?._text || 'anonymous@example.com';
+              const commentUrl = comment['wp:comment_author_url']?._text || 'https://example.com';
+              const commentContent = comment['wp:comment_content']._text || comment['wp:comment_content']._cdata || '';
+              const commentDate = comment['wp:comment_date']._text || pubDate;
+
+              bloggerXML += `
+  <!-- تعليق جديد -->
+  <entry>
+    <id>${commentId}</id>
+    <title type="text">${commentContent.substring(0, 50)}...</title>
+    <content type="html"><![CDATA[${commentContent}]]></content>
+    <published>${commentDate}</published>
+    <author>
+      <name>${commentAuthor}</name>
+      <email>${commentEmail}</email>
+      <uri>${commentUrl}</uri>
+    </author>
+    <category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/>
+    <in-reply-to ref="${postId}" type="application/atom+xml"/>
+  </entry>`;
+            });
           });
 
           bloggerXML += `
