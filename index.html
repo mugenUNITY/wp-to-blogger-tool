@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>تحويل ملف ووردبريس إلى بلوجر</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- استبدال مكتبة xml2json بإصدار أحدث -->
+  <script src="https://cdn.jsdelivr.net/npm/x2js@3.5.0/x2js.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
   <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
@@ -20,217 +22,6 @@
     <button id="convertBtn" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition duration-200">تحويل وتنزيل</button>
     <p id="status" class="mt-4 text-center text-gray-600"></p>
   </div>
-
-  <!-- مكتبة xml2json (الإصدار 1.1.0) مدمجة مباشرة -->
-  <script>
-    function X2JS(config) {
-      "use strict";
-      function initConfigDefaults() {
-        void 0 === config.escapeMode && (config.escapeMode = !0),
-        void 0 === config.attributePrefix && (config.attributePrefix = "_"),
-        void 0 === config.arrayAccessForm && (config.arrayAccessForm = "none");
-      }
-      function getNodeLocalName(node) {
-        var nodeLocalName = node.localName;
-        return null == nodeLocalName && (nodeLocalName = node.baseName),
-        (null == nodeLocalName || "" == nodeLocalName) && (nodeLocalName = node.nodeName),
-        nodeLocalName;
-      }
-      function getNodePrefix(node) {
-        return node.prefix;
-      }
-      function escapeXmlChars(str) {
-        return "string" == typeof str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;").replace(/\//g, "&#x2F;") : str;
-      }
-      function unescapeXmlChars(str) {
-        return str.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#x2F;/g, "/");
-      }
-      function toArrayAccessForm(obj, childName) {
-        switch (config.arrayAccessForm) {
-          case "property":
-            obj[childName] instanceof Array ? obj[childName + "_asArray"] = obj[childName] : obj[childName + "_asArray"] = [obj[childName]];
-        }
-      }
-      function parseDOMChildren(node) {
-        if (node.nodeType == DOMNodeTypes.DOCUMENT_NODE) {
-          var result = new Object,
-              child = node.firstChild,
-              childName = getNodeLocalName(child);
-          return result[childName] = parseDOMChildren(child), result;
-        }
-        if (node.nodeType == DOMNodeTypes.ELEMENT_NODE) {
-          var result = new Object;
-          result.__cnt = 0;
-          for (var nodeChildren = node.childNodes, cidx = 0; cidx < nodeChildren.length; cidx++) {
-            var child = nodeChildren.item(cidx),
-                childName = getNodeLocalName(child);
-            if (result.__cnt++,
-                null == result[childName])
-              result[childName] = parseDOMChildren(child),
-              toArrayAccessForm(result, childName);
-            else {
-              if (null != result[childName] && !(result[childName] instanceof Array)) {
-                var tmpObj = result[childName];
-                result[childName] = new Array,
-                result[childName][0] = tmpObj,
-                toArrayAccessForm(result, childName);
-              }
-              for (var aridx = 0; null != result[childName][aridx];) aridx++;
-              result[childName][aridx] = parseDOMChildren(child);
-            }
-          }
-          for (var aidx = 0; aidx < node.attributes.length; aidx++) {
-            var attr = node.attributes.item(aidx);
-            result.__cnt++,
-            result[config.attributePrefix + attr.name] = attr.value;
-          }
-          var nodePrefix = getNodePrefix(node);
-          return null != nodePrefix && "" != nodePrefix && (result.__cnt++, result.__prefix = nodePrefix),
-          1 == result.__cnt && null != result["#text"] && (result = result["#text"]),
-          null != result["#text"] && (result.__text = result["#text"],
-            result.__text instanceof Array && (result.__text = result.__text.join("\n")),
-            config.escapeMode && (result.__text = unescapeXmlChars(result.__text)),
-            delete result["#text"],
-            delete result["#text_asArray"]),
-          null != result["#cdata-section"] && (result.__cdata = result["#cdata-section"],
-            delete result["#cdata-section"],
-            delete result["#cdata-section_asArray"]),
-          void 0 != result.__cnt && delete result.__cnt,
-          (null != result.__text || null != result.__cdata) && (result.toString = function() {
-            return (null != this.__text ? this.__text : "") + (null != this.__cdata ? this.__cdata : "");
-          }),
-          result;
-        }
-        return node.nodeType == DOMNodeTypes.TEXT_NODE || node.nodeType == DOMNodeTypes.CDATA_SECTION_NODE ? node.nodeValue : void 0;
-      }
-      function startTag(jsonObj, element, attrList, closed) {
-        var resultStr = "<" + (null != jsonObj && null != jsonObj.__prefix ? jsonObj.__prefix + ":" : "") + element;
-        if (null != attrList)
-          for (var aidx = 0; aidx < attrList.length; aidx++) {
-            var attrName = attrList[aidx],
-                attrVal = jsonObj[attrName];
-            resultStr += " " + attrName.substr(1) + "='" + attrVal + "'";
-          }
-        return resultStr += closed ? "/>" : ">";
-      }
-      function endTag(jsonObj, elementName) {
-        return "</" + (null != jsonObj.__prefix ? jsonObj.__prefix + ":" : "") + elementName + ">";
-      }
-      function endsWith(str, suffix) {
-        return -1 !== str.indexOf(suffix, str.length - suffix.length);
-      }
-      function jsonXmlSpecialElem(jsonObj, jsonObjField) {
-        return "property" == config.arrayAccessForm && endsWith(jsonObjField.toString(), "_asArray") || 0 == jsonObjField.toString().indexOf(config.attributePrefix) || 0 == jsonObjField.toString().indexOf("__") || jsonObj[jsonObjField] instanceof Function ? !0 : !1;
-      }
-      function jsonXmlElemCount(jsonObj) {
-        var elementsCnt = 0;
-        if (jsonObj instanceof Object)
-          for (var it in jsonObj)
-            jsonXmlSpecialElem(jsonObj, it) || elementsCnt++;
-        return elementsCnt;
-      }
-      function parseJSONAttributes(jsonObj) {
-        var attrList = [];
-        if (jsonObj instanceof Object)
-          for (var ait in jsonObj)
-            -1 == ait.toString().indexOf("__") && 0 == ait.toString().indexOf(config.attributePrefix) && attrList.push(ait);
-        return attrList;
-      }
-      function parseJSONTextAttrs(jsonTxtObj) {
-        var result = "";
-        return null != jsonTxtObj.__cdata && (result += "<![CDATA[" + jsonTxtObj.__cdata + "]]>"),
-        null != jsonTxtObj.__text && (result += config.escapeMode ? escapeXmlChars(jsonTxtObj.__text) : jsonTxtObj.__text),
-        result;
-      }
-      function parseJSONTextObject(jsonTxtObj) {
-        var result = "";
-        return jsonTxtObj instanceof Object ? result += parseJSONTextAttrs(jsonTxtObj) : null != jsonTxtObj && (result += config.escapeMode ? escapeXmlChars(jsonTxtObj) : jsonTxtObj),
-        result;
-      }
-      function parseJSONArray(jsonArrRoot, jsonArrObj, attrList) {
-        var result = "";
-        if (0 == jsonArrRoot.length)
-          result += startTag(jsonArrRoot, jsonArrObj, attrList, !0);
-        else
-          for (var arIdx = 0; arIdx < jsonArrRoot.length; arIdx++)
-            result += startTag(jsonArrRoot[arIdx], jsonArrObj, parseJSONAttributes(jsonArrRoot[arIdx]), !1),
-            result += parseJSONObject(jsonArrRoot[arIdx]),
-            result += endTag(jsonArrRoot[arIdx], jsonArrObj);
-        return result;
-      }
-      function parseJSONObject(jsonObj) {
-        var result = "",
-            elementsCnt = jsonXmlElemCount(jsonObj);
-        if (elementsCnt > 0)
-          for (var it in jsonObj)
-            if (!jsonXmlSpecialElem(jsonObj, it)) {
-              var subObj = jsonObj[it],
-                  attrList = parseJSONAttributes(subObj);
-              if (null == subObj || void 0 == subObj)
-                result += startTag(subObj, it, attrList, !0);
-              else if (subObj instanceof Object)
-                if (subObj instanceof Array)
-                  result += parseJSONArray(subObj, it, attrList);
-                else {
-                  var subObjElementsCnt = jsonXmlElemCount(subObj);
-                  subObjElementsCnt > 0 || null != subObj.__text || null != subObj.__cdata ? (result += startTag(subObj, it, attrList, !1),
-                    result += parseJSONObject(subObj),
-                    result += endTag(subObj, it)) : result += startTag(subObj, it, attrList, !0);
-                }
-              else
-                result += startTag(subObj, it, attrList, !1),
-                result += parseJSONTextObject(subObj),
-                result += endTag(subObj, it);
-            }
-        return result += parseJSONTextObject(jsonObj);
-      }
-      var VERSION = "1.1.0";
-      config = config || {},
-      initConfigDefaults();
-      var DOMNodeTypes = {
-        ELEMENT_NODE: 1,
-        TEXT_NODE: 3,
-        CDATA_SECTION_NODE: 4,
-        DOCUMENT_NODE: 9
-      };
-      this.parseXmlString = function(xmlDocStr) {
-        if (void 0 === xmlDocStr)
-          return null;
-        var xmlDoc;
-        if (window.DOMParser) {
-          var parser = new window.DOMParser;
-          xmlDoc = parser.parseFromString(xmlDocStr, "text/xml");
-        } else
-          0 == xmlDocStr.indexOf("<?") && (xmlDocStr = xmlDocStr.substr(xmlDocStr.indexOf("?>") + 2)),
-          xmlDoc = new ActiveXObject("Microsoft.XMLDOM"),
-          xmlDoc.async = "false",
-          xmlDoc.loadXML(xmlDocStr);
-        return xmlDoc;
-      },
-      this.asArray = function(prop) {
-        return prop instanceof Array ? prop : [prop];
-      },
-      this.xml2json = function(xmlDoc) {
-        return parseDOMChildren(xmlDoc);
-      },
-      this.xml_str2json = function(xmlDocStr) {
-        var xmlDoc = this.parseXmlString(xmlDocStr);
-        return this.xml2json(xmlDoc);
-      },
-      this.json2xml_str = function(jsonObj) {
-        return parseJSONObject(jsonObj);
-      },
-      this.json2xml = function(jsonObj) {
-        var xmlDocStr = this.json2xml_str(jsonObj);
-        return this.parseXmlString(xmlDocStr);
-      },
-      this.getVersion = function() {
-        return VERSION;
-      };
-    }
-    const x2js = new X2JS();
-    const xml2json = x2js.xml2json.bind(x2js);
-  </script>
 
   <!-- مكتبة FileSaver.js المحدثة -->
   <script>
@@ -262,8 +53,8 @@
         return;
       }
 
-      if (typeof xml2json === 'undefined') {
-        status.textContent = 'خطأ: مكتبة xml2json غير متاحة.';
+      if (typeof X2JS === 'undefined') {
+        status.textContent = 'خطأ: مكتبة X2JS غير متاحة.';
         status.className = 'mt-4 text-center text-red-600';
         return;
       }
@@ -284,21 +75,31 @@
           const parser = new DOMParser();
           const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
 
-          const json = xml2json(xmlDoc);
+          // استخدام مكتبة X2JS الجديدة
+          const x2js = new X2JS();
+          const json = x2js.xml2json(xmlDoc);
+
+          // تصحيح الأخطاء: طباعة البيانات للتأكد من التحويل
+          console.log('JSON المحول:', JSON.stringify(json, null, 2));
+
+          // استخراج بيانات القناة والمنشورات
           const channel = json.rss?.channel || {};
           const posts = channel.item || [];
           const blogTitle = channel.title || 'Converted Blog';
           const blogLink = channel.link || 'https://example.com';
-          const updatedDate = channel.lastBuildDate || new Date().toISOString();
+          const updatedDate = channel.lastBuildDate || channel.pubDate || new Date().toISOString();
 
-          if (!Array.isArray(posts) && !posts.title) {
-            status.textContent = 'خطأ: لا توجد منشورات في الملف!';
+          // التحقق من وجود منشورات
+          if (!posts || (Array.isArray(posts) && posts.length === 0) || (!Array.isArray(posts) && !posts.title)) {
+            status.textContent = 'خطأ: لا توجد منشورات في الملف! تأكد من هيكل الملف.';
             status.className = 'mt-4 text-center text-red-600';
+            console.log('المنشورات المستخرجة:', posts);
             return;
           }
 
           const postsArray = Array.isArray(posts) ? posts : [posts];
 
+          // إنشاء ملف Atom
           let atomXml = `<?xml version="1.0" encoding="UTF-8"?>
 <ns0:feed xmlns:ns0="http://www.w3.org/2005/Atom" xmlns:thr="http://purl.org/syndication/thread/1.0">
   <ns0:title type="html">${blogTitle}</ns0:title>
