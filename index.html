@@ -42,10 +42,35 @@
 
   <!-- الكود الرئيسي لتحويل الملف -->
   <script>
-    // تحويل تاريخ ووردبريس إلى تاريخ بلوجر
+    // تحويل تاريخ ووردبريس إلى تاريخ بلوجر (تنسيق محسّن)
     function convertDate(wpDate) {
       const date = new Date(wpDate);
-      return date.toISOString().replace(/\.[\d]{3}Z$/, '+00:00');
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    }
+
+    // تحويل روابط الفيديو إلى iframe للتضمين في بلوجر
+    function embedVideo(content) {
+      const videoPattern = /\[embed\](https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/[^\s]+)\[\/embed\]/g;
+      return content.replace(videoPattern, (match, url) => {
+        // استخراج معرف الفيديو من الرابط
+        const videoIdMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+        const videoId = videoIdMatch ? videoIdMatch[1] : null;
+        if (videoId) {
+          return `<div class="video-container"><iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>`;
+        }
+        return url; // إذا لم يتم العثور على معرف فيديو، أعد الرابط كما هو
+      });
+    }
+
+    // تحويل الروابط النصية إلى روابط قابلة للنقر
+    function linkify(content) {
+      const urlPattern = /(https?:\/\/[^\s<]+)(?![^<]*>|[^<>]*<\/a>)/g;
+      return content.replace(urlPattern, '<a href="$1" target="_blank">$1</a>');
     }
 
     // استبدال روابط الصور بمسار جديد إذا تم تحديده
@@ -56,6 +81,19 @@
         const newUrl = imagePath + url.substring(url.lastIndexOf('/') + 1);
         return match.replace(url, newUrl);
       });
+    }
+
+    // تنسيق المحتوى (الفيديو، الروابط، التواريخ)
+    function formatContent(content) {
+      let formattedContent = content;
+      // تحويل روابط الفيديو
+      formattedContent = embedVideo(formattedContent);
+      // تحويل الروابط النصية
+      formattedContent = linkify(formattedContent);
+      // تنسيق التواريخ داخل المحتوى
+      const datePattern = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}/g;
+      formattedContent = formattedContent.replace(datePattern, (date) => convertDate(date));
+      return formattedContent;
     }
 
     // تحويل الملف
@@ -83,7 +121,9 @@
 
           // إنشاء ملف XML جديد متوافق مع بلوجر
           let bloggerXML = `<?xml version="1.0" encoding="UTF-8"?>
+<!-- ملف XML محول لاستيراده إلى بلوجر -->
 <feed xmlns="http://www.w3.org/2005/Atom">
+  <!-- معلومات عامة عن الـ Feed -->
   <title>Converted Feed</title>
   <id>ConvertedFeed</id>
   <updated>${new Date().toISOString()}</updated>
@@ -95,14 +135,25 @@
             const content = item['content:encoded']._cdata || item['content:encoded']._text || '';
             const pubDate = convertDate(item.pubDate._text);
             const categories = item.category || [];
-            const updatedContent = replaceImageUrls(content, imagePath);
+
+            // تنسيق المحتوى (الفيديو، الروابط، التواريخ)
+            let updatedContent = replaceImageUrls(content, imagePath);
+            updatedContent = formatContent(updatedContent);
+
+            // تنظيم المحتوى مع عنوان وفقرة
+            updatedContent = `
+              <h2>${title}</h2>
+              <div class="post-content">${updatedContent}</div>
+              <p class="post-date">تاريخ النشر: ${pubDate}</p>
+            `;
 
             bloggerXML += `
+  <!-- مقالة جديدة -->
   <entry>
     <title type="html">${title}</title>
     <content type="html"><![CDATA[${updatedContent}]]></content>
-    <published>${pubDate}</published>
-    <updated>${pubDate}</updated>`;
+    <published>${item.pubDate._text}</published>
+    <updated>${item.pubDate._text}</updated>`;
 
             // إضافة التصنيفات (labels)
             if (Array.isArray(categories)) {
