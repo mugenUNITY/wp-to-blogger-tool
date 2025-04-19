@@ -98,8 +98,8 @@
 
           const postsArray = Array.isArray(posts) ? posts : [posts];
 
-          // إنشاء ملف Atom
-          let atomXml = `<?xml version="1.0" encoding="UTF-8"?>
+          // رأس ملف Atom XML (سيُستخدم في كل ملف)
+          const feedHeader = `<?xml version="1.0" encoding="UTF-8"?>
 <ns0:feed xmlns:ns0="http://www.w3.org/2005/Atom" xmlns:thr="http://purl.org/syndication/thread/1.0">
   <ns0:title type="html">${blogTitle}</ns0:title>
   <ns0:updated>${updatedDate}</ns0:updated>
@@ -108,7 +108,10 @@
   <ns0:link rel="self" href="${blogLink}" type="application/atom+xml"/>
   <ns0:link rel="alternate" href="${blogLink}" type="text/html"/>`;
 
-          postsArray.forEach((post, index) => {
+          const feedFooter = `</ns0:feed>`;
+
+          // إنشاء المنشورات (كل منشور كسلسلة نصية)
+          const entries = postsArray.map((post, index) => {
             const title = post.title?._text || post.title?._cdata || 'بدون عنوان';
             let content = post['content:encoded']?._cdata || post['content:encoded']?._text || post.description?._text || '';
             const pubDate = post.pubDate?._text || new Date().toISOString();
@@ -117,7 +120,6 @@
             const postLink = post.link?._text || blogLink;
             let categories = Array.isArray(post.category) ? post.category : post.category ? [post.category] : [];
 
-            // تحويل التصنيفات إلى سلاسل نصية مع التعامل مع _text و _cdata
             categories = categories
               .map(cat => {
                 if (typeof cat === 'string') return cat;
@@ -142,7 +144,7 @@
 
             content = content.replace(/ /g, ' ').replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
 
-            atomXml += `
+            return `
   <ns0:entry>
     <ns0:id>tag:blogger.com,1999:${postId}</ns0:id>
     <ns0:published>${pubDate}</ns0:published>
@@ -157,17 +159,43 @@
   </ns0:entry>`;
           });
 
-          atomXml += `</ns0:feed>`;
+          // تقسيم المنشورات إلى ملفات بحجم أقل من 1 ميجابايت
+          const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1 ميجابايت
+          let currentFileContent = feedHeader;
+          let currentFileSize = new TextEncoder().encode(currentFileContent).length;
+          let fileIndex = 1;
+          const files = [];
 
-          const blob = new Blob([atomXml], { type: 'application/xml' });
-          if (blob.size > 1 * 1024 * 1024) {
-            status.textContent = 'تحذير: الملف كبير جدًا (>1MB). يرجى تقسيم المحتوى يدويًا.';
-            status.className = 'mt-4 text-center text-orange-600';
-            return;
+          for (const entry of entries) {
+            const entrySize = new TextEncoder().encode(entry).length;
+            const footerSize = new TextEncoder().encode(feedFooter).length;
+
+            // إذا أضيف المنشور الحالي وأصبح الحجم أكبر من 1 ميجابايت، أغلق الملف الحالي وابدأ ملفًا جديدًا
+            if (currentFileSize + entrySize + footerSize > MAX_FILE_SIZE) {
+              currentFileContent += feedFooter;
+              files.push({ content: currentFileContent, index: fileIndex });
+              fileIndex++;
+              currentFileContent = feedHeader;
+              currentFileSize = new TextEncoder().encode(currentFileContent).length;
+            }
+
+            currentFileContent += entry;
+            currentFileSize += entrySize;
           }
 
-          saveAs(blob, 'blogger_export.xml');
-          status.textContent = 'تم التحويل بنجاح! الملف جاهز للتنزيل.';
+          // إضافة الملف الأخير إذا كان يحتوي على منشورات
+          if (currentFileSize > new TextEncoder().encode(feedHeader).length) {
+            currentFileContent += feedFooter;
+            files.push({ content: currentFileContent, index: fileIndex });
+          }
+
+          // تنزيل الملفات
+          files.forEach(file => {
+            const blob = new Blob([file.content], { type: 'application/xml' });
+            saveAs(blob, `blogger_export_part${file.index}.xml`);
+          });
+
+          status.textContent = `تم التحويل بنجاح! تم إنشاء ${files.length} ملف${files.length > 1 ? 'ات' : ''} جاهزة للتنزيل.`;
           status.className = 'mt-4 text-center text-green-600';
         } catch (error) {
           status.textContent = 'خطأ أثناء التحويل: ' + error.message;
