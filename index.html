@@ -42,16 +42,6 @@
 
   <!-- الكود الرئيسي لتحويل الملف -->
   <script>
-    // دالة لهروب الأحرف الخاصة في XML
-    function escapeXML(str) {
-      return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
-    }
-
     // تحويل تاريخ ووردبريس إلى تاريخ بلوجر (تنسيق محسّن)
     function convertDate(wpDate) {
       const date = new Date(wpDate);
@@ -63,35 +53,21 @@
       return `${day}/${month}/${year} ${hours}:${minutes}`;
     }
 
-    // تحويل تاريخ ووردبريس إلى صيغة ISO
-    function convertToISODate(wpDate) {
-      const date = new Date(wpDate);
-      return date.toISOString(); // تنسيق ISO مثل 2017-05-29T00:14:40Z
-    }
-
     // استبدال روابط الصور بمسار جديد إذا تم تحديده
     function replaceImageUrls(content, imagePath) {
       if (!imagePath) return content;
       const imageUrlPattern = /<img[^>]+src=["'](.*?)["']/g;
       return content.replace(imageUrlPattern, (match, url) => {
         const newUrl = imagePath + url.substring(url.lastIndexOf('/') + 1);
-        return newUrl; // إدراج الرابط كنص خام
+        return match.replace(url, newUrl);
       });
     }
 
-    // تنسيق المحتوى (تحويل كل شيء إلى نصوص خام)
+    // تنسيق المحتوى (إزالة تحويل الفيديوهات والروابط لتكون مطابقة للملف المرفق)
     function formatContent(content) {
       let formattedContent = content;
-
-      // إزالة عناصر HTML مثل <a>, <img>, <h2> وتحويلها إلى نصوص خام
-      formattedContent = formattedContent.replace(/<a[^>]+href=["'](.*?)["'][^>]*>(.*?)<\/a>/g, '$1'); // تحويل الروابط إلى نصوص خام
-      formattedContent = formattedContent.replace(/<img[^>]+src=["'](.*?)["'][^>]*>/g, '$1'); // تحويل الصور إلى روابط خام
-      formattedContent = formattedContent.replace(/<\/?h[1-6][^>]*>/g, ''); // إزالة عناوين HTML مثل <h2>
-
-      // استبدال التواريخ
       const datePattern = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}/g;
       formattedContent = formattedContent.replace(datePattern, (date) => `<strong>${convertDate(date)}</strong>`);
-
       return formattedContent;
     }
 
@@ -126,7 +102,7 @@
             uri: channel.link?._text || 'https://example.com'
           };
 
-          // رأس الملف (كل شيء في سطر واحد)
+          // رأس الملف (مطابق للملف المرفق، بدون فراغات)
           const header = `<?xml version="1.0" encoding="UTF-8"?><ns0:feed xmlns:ns0="http://www.w3.org/2005/Atom"><ns0:link rel="self" href="${channel.link._text || 'https://example.com'}" type="application/atom+xml"/><ns0:link rel="alternate" href="${channel.link._text || 'https://example.com'}" type="text/html"/>`;
 
           const footer = `</ns0:feed>`;
@@ -140,12 +116,12 @@
           // تحويل كل مقالة
           (Array.isArray(entries) ? entries : [entries]).forEach((item, index) => {
             const postId = `post-${index}`; // معرف فريد للمقالة (مطابق للملف المرفق)
-            const title = escapeXML(item.title._text || item.title._cdata || 'بدون عنوان'); // هروب العنوان
+            const title = item.title._text || item.title._cdata || 'بدون عنوان';
             const content = item['content:encoded']._cdata || item['content:encoded']._text || '';
-            const pubDate = convertToISODate(item.pubDate._text); // تحويل التاريخ إلى صيغة ISO
+            const pubDate = item.pubDate._text;
             const categories = item.category || [];
             const author = {
-              name: escapeXML(item['dc:creator']?._text || defaultAuthor.name),
+              name: item['dc:creator']?._text || defaultAuthor.name,
               email: defaultAuthor.email,
               uri: item.link?._text || defaultAuthor.uri
             };
@@ -153,23 +129,22 @@
             // تنسيق المحتوى
             let updatedContent = replaceImageUrls(content, imagePath);
             updatedContent = formatContent(updatedContent);
-            updatedContent = `${updatedContent}<br/><br/>Publication Date: <strong>${convertDate(item.pubDate._text)}</strong>`;
-            updatedContent = escapeXML(updatedContent); // هروب المحتوى
+            updatedContent = `${updatedContent}<br/><br/>Publication Date: <strong>${convertDate(pubDate)}</strong>`;
 
-            // إنشاء المقالة (كل شيء في سطر واحد، بدون CDATA)
-            let entryXML = `<ns0:entry><ns0:category term="http://schemas.google.com/blogger/2008/kind#post" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${postId}</ns0:id><ns0:link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/><ns0:title type="html">${title}</ns0:title><ns0:content type="html">${updatedContent}</ns0:content><ns0:published>${pubDate}</ns0:published><ns0:author><ns0:name>${author.name}</ns0:name><ns0:email>${author.email}</ns0:email><ns0:uri>${author.uri}</ns0:uri></ns0:author>`;
+            // إنشاء المقالة بدون فراغات أو أسطر فارغة
+            let entryXML = `<ns0:entry><ns0:category term="http://schemas.google.com/blogger/2008/kind#post" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${postId}</ns0:id><ns0:link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/><ns0:title type="html">${title}</ns0:title><ns0:content type="html"><![CDATA[${updatedContent}]]></ns0:content><ns0:published>${pubDate}</ns0:published><ns0:author><ns0:name>${author.name}</ns0:name><ns0:email>${author.email}</ns0:email><ns0:uri>${author.uri}</ns0:uri></ns0:author>`;
 
             // إضافة التصنيفات (labels)
             if (Array.isArray(categories)) {
               categories.forEach(category => {
                 const catName = category._text || category._cdata;
                 if (catName) {
-                  entryXML += `<ns0:category term="http://www.blogger.com/atom/ns#"/>`;
+                  entryXML += `<ns0:category term="S'in categoria"/>`;
                 }
               });
             } else if (categories._text || categories._cdata) {
               const catName = categories._text || categories._cdata;
-              entryXML += `<ns0:category term="http://www.blogger.com/atom/ns#"/>`;
+              entryXML += `<ns0:category term="S'in categoria"/>`;
             }
 
             entryXML += `</ns0:entry>`;
@@ -180,14 +155,13 @@
             (Array.isArray(comments) ? comments : [comments]).forEach((comment, commentIndex) => {
               if (!comment['wp:comment_content']) return; // تجاهل التعليقات الفارغة
               const commentId = `${postId}.comment-${commentIndex}`;
-              const commentAuthor = escapeXML(comment['wp:comment_author']?._text || 'Anonymous');
+              const commentAuthor = comment['wp:comment_author']?._text || 'Anonymous';
               const commentEmail = comment['wp:comment_author_email']?._text || 'anonymous@example.com';
               const commentUrl = comment['wp:comment_author_url']?._text || 'https://example.com';
-              const commentContent = escapeXML(comment['wp:comment_content']._text || comment['wp:comment_content']._cdata || '');
-              const commentDate = convertToISODate(comment['wp:comment_date']._text || item.pubDate._text);
-              const commentTitle = escapeXML(commentContent.substring(0, 50) + '...');
+              const commentContent = comment['wp:comment_content']._text || comment['wp:comment_content']._cdata || '';
+              const commentDate = comment['wp:comment_date']._text || pubDate;
 
-              commentsXML += `<ns0:entry><ns0:author><ns0:name>${commentAuthor}</ns0:name><ns0:email>${commentEmail}</ns0:email><ns0:uri>${commentUrl}</ns0:uri></ns0:author><ns0:category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${commentId}</ns0:id><ns0:link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/><ns0:title type="text">${commentTitle}</ns0:title><ns0:content type="html">${commentContent}</ns0:content><ns0:published>${commentDate}</ns0:published><ns1:in-reply-to xmlns:ns1="http://purl.org/syndication/thread/1.0" ref="${postId}" type="application/atom+xml"/></ns0:entry>`;
+              commentsXML += `<ns0:entry><ns0:author><ns0:name>${commentAuthor}</ns0:name><ns0:email>${commentEmail}</ns0:email><ns0:uri>${commentUrl}</ns0:uri></ns0:author><ns0:category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${commentId}</ns0:id><ns0:link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/><ns0:title type="text">${commentContent.substring(0, 50)}...</ns0:title><ns0:content type="html"><![CDATA[${commentContent}]]></ns0:content><ns0:published>${commentDate}</ns0:published><ns1:in-reply-to xmlns:ns1="http://purl.org/syndication/thread/1.0" ref="${postId}" type="application/atom+xml"/></ns0:entry>`;
             });
 
             // إضافة المقالة والتعليقات إلى المحتوى الحالي
