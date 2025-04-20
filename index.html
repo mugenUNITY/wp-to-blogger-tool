@@ -7,8 +7,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- استدعاء مكتبة xml-js من الملف المحلي -->
   <script src="xml-js.min.js"></script>
-  <!-- استدعاء خطوط Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Arial&family=Times+New+Roman&family=Roboto&family=Open+Sans&display=swap" rel="stylesheet">
   <style>
     /* تنسيق شريط التقدم */
     .progress-container {
@@ -28,22 +26,6 @@
       color: white;
       font-weight: bold;
       line-height: 1.5rem;
-    }
-    /* تنسيق الفيديو */
-    .video-wrapper {
-      position: relative;
-      padding-bottom: 56.25%; /* نسبة العرض إلى الارتفاع 16:9 */
-      margin: 1rem 0;
-      border: 2px solid #ddd;
-      border-radius: 0.5rem;
-      overflow: hidden;
-    }
-    .video-wrapper iframe {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
     }
   </style>
 </head>
@@ -70,15 +52,6 @@
         <input type="checkbox" id="embedVideos" class="mr-2">
         <span class="text-gray-700">تضمين مقاطع الفيديو (مثل YouTube)</span>
       </label>
-      <!-- خيارات تخصيص الفيديو -->
-      <div id="videoOptions" class="mt-2 hidden">
-        <label class="block text-gray-700 mb-2 font-medium" for="videoWidth">عرض الفيديو:</label>
-        <select id="videoWidth" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="560">افتراضي (560px)</option>
-          <option value="640">كبير (640px)</option>
-          <option value="480">صغير (480px)</option>
-        </select>
-      </div>
     </div>
     <div class="mb-4">
       <label class="flex items-center">
@@ -93,33 +66,12 @@
         <option value="fr">الفرنسية</option>
       </select>
     </div>
+    <!-- خيار إزالة التعليقات -->
     <div class="mb-4">
       <label class="flex items-center">
         <input type="checkbox" id="removeComments" class="mr-2">
         <span class="text-gray-700">إزالة التعليقات</span>
       </label>
-    </div>
-    <!-- خيار تخصيص الخط -->
-    <div class="mb-4">
-      <label class="flex items-center">
-        <input type="checkbox" id="customFont" class="mr-2">
-        <span class="text-gray-700">تخصيص الخط</span>
-      </label>
-      <div id="fontOptions" class="mt-2 hidden">
-        <label class="block text-gray-700 mb-2 font-medium" for="fontFamily">نوع الخط:</label>
-        <select id="fontFamily" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="Arial">Arial</option>
-          <option value="Times New Roman">Times New Roman</option>
-          <option value="Roboto">Roboto</option>
-          <option value="Open Sans">Open Sans</option>
-        </select>
-        <label class="block text-gray-700 mt-2 mb-2 font-medium" for="fontSize">حجم الخط:</label>
-        <select id="fontSize" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="14px">صغير (14px)</option>
-          <option value="16px">متوسط (16px)</option>
-          <option value="18px">كبير (18px)</option>
-        </select>
-      </div>
     </div>
     <button id="convertBtn" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition duration-200">تحويل وتنزيل</button>
     <p id="status" class="mt-4 text-center text-gray-600"></p>
@@ -155,18 +107,6 @@
       if (!this.checked) {
         targetLanguageSelect.value = '';
       }
-    });
-
-    // تفعيل/تعطيل خيارات الفيديو بناءً على خيار تضمين الفيديوهات
-    document.getElementById('embedVideos').addEventListener('change', function () {
-      const videoOptions = document.getElementById('videoOptions');
-      videoOptions.classList.toggle('hidden', !this.checked);
-    });
-
-    // تفعيل/تعطيل خيارات الخط بناءً على خيار تخصيص الخط
-    document.getElementById('customFont').addEventListener('change', function () {
-      const fontOptions = document.getElementById('fontOptions');
-      fontOptions.classList.toggle('hidden', !this.checked);
     });
 
     // دالة لتحديث شريط التقدم
@@ -247,30 +187,25 @@
       });
     }
 
-    // تحويل روابط الفيديو إلى فيديو مدمج مع تنسيق محسّن (إذا تم تفعيل الخيار)
-    function embedVideos(content, videoWidth) {
+    // تحويل روابط الفيديو إلى فيديو مدمج (إذا تم تفعيل الخيار)
+    function embedVideos(content) {
       const youtubePattern = /(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11}))/g;
       return content.replace(youtubePattern, (match, url, videoId) => {
-        return `<div class="video-wrapper"><iframe width="${videoWidth}" height="${(videoWidth * 9) / 16}" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>`;
+        return `<iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
       });
     }
 
-    // تحويل الروابط النصية المستقلة (بما في ذلك روابط التحميل) إلى روابط قابلة للنقر
+    // تحويل الروابط النصية المستقلة فقط إلى روابط قابلة للنقر (إذا تم تفعيل الخيار)
     function makeLinksClickable(content) {
       const urlPattern = /(^|\s)(https?:\/\/[^\s<>"']+)(?=\s|$|[.,!?])/g;
-      const downloadDomains = ['mega.nz', 'dropbox.com', 'drive.google.com', 'mediafire.com'];
       return content.replace(urlPattern, (match, prefix, url) => {
-        // تجنب تحويل روابط YouTube إذا تم تحويلها بالفعل إلى iframe
         if (url.includes('youtube.com') || url.includes('youtu.be')) return match;
-        // التحقق إذا كان الرابط ينتمي إلى مواقع التحميل
-        const isDownloadLink = downloadDomains.some(domain => url.includes(domain));
-        const linkColor = isDownloadLink ? '#e0245e' : '#1a73e8'; // لون وردي لروابط التحميل، أزرق للروابط العادية
-        return `${prefix}<a href="${url}" style="color: ${linkColor}; text-decoration: underline; font-weight: ${isDownloadLink ? 'bold' : 'normal'};" target="_blank">${url}</a>`;
+        return `${prefix}<a href="${url}" style="color: #1a73e8; text-decoration: underline;" target="_blank">${url}</a>`;
       });
     }
 
-    // تنسيق المحتوى مع تطبيق الخطوط المخصصة
-    async function formatContent(content, convertLinks, embedVideosOption, targetLang, videoWidth, customFont, fontFamily, fontSize) {
+    // تنسيق المحتوى (الإبقاء على الصور مع جميع السمات)
+    async function formatContent(content, convertLinks, embedVideosOption, targetLang) {
       let formattedContent = content;
 
       // إزالة عناصر <a> و<h2> فقط، مع الإبقاء على <img> بجميع السمات
@@ -281,9 +216,9 @@
       const datePattern = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}/g;
       formattedContent = formattedContent.replace(datePattern, (date) => `<strong>${convertDate(date)}</strong>`);
 
-      // تطبيق خيار تضمين الفيديوهات
+      // تطبيق خيار تضمين الفيديوهات (قبل تحويل الروابط لتجنب التداخل)
       if (embedVideosOption) {
-        formattedContent = embedVideos(formattedContent, videoWidth);
+        formattedContent = embedVideos(formattedContent);
       }
 
       // تطبيق خيار تحويل الروابط إلى روابط قابلة للنقر
@@ -296,11 +231,6 @@
         formattedContent = await translateContent(formattedContent, targetLang);
       }
 
-      // تطبيق الخط المخصص إذا تم تفعيله
-      if (customFont) {
-        formattedContent = `<div style="font-family: '${fontFamily}', sans-serif; font-size: ${fontSize}; line-height: 1.6;">${formattedContent}</div>`;
-      }
-
       return formattedContent;
     }
 
@@ -310,13 +240,9 @@
       const imagePath = document.getElementById('imagePath').value.trim();
       const convertLinks = document.getElementById('convertLinks').checked;
       const embedVideosOption = document.getElementById('embedVideos').checked;
-      const videoWidth = document.getElementById('videoWidth').value;
       const translateContentOption = document.getElementById('translateContent').checked;
       const targetLanguage = document.getElementById('targetLanguage').value;
       const removeComments = document.getElementById('removeComments').checked;
-      const customFont = document.getElementById('customFont').checked;
-      const fontFamily = document.getElementById('fontFamily').value;
-      const fontSize = document.getElementById('fontSize').value;
       const status = document.getElementById('status');
 
       if (!fileInput.files.length) {
@@ -394,7 +320,7 @@
 
             // تنسيق المحتوى مع تطبيق الخيارات
             let updatedContent = replaceImageUrls(content, imagePath);
-            updatedContent = await formatContent(updatedContent, convertLinks, embedVideosOption, translateContentOption ? targetLanguage : '', videoWidth, customFont, fontFamily, fontSize);
+            updatedContent = await formatContent(updatedContent, convertLinks, embedVideosOption, translateContentOption ? targetLanguage : '');
             updatedContent = `${updatedContent}<br/><br/>Publication Date: <strong>${convertDate(item.pubDate._text)}</strong>`;
 
             // تحديث التقدم بعد معالجة المقالة
@@ -442,7 +368,7 @@
                 const commentDate = convertToISODate(comment['wp:comment_date']._text || item.pubDate._text, item.pubDate._text);
 
                 // تنسيق محتوى التعليق مع تطبيق الخيارات
-                const formattedCommentContent = await formatContent(commentContent, convertLinks, embedVideosOption, translateContentOption ? targetLanguage : '', videoWidth, customFont, fontFamily, fontSize);
+                const formattedCommentContent = await formatContent(commentContent, convertLinks, embedVideosOption, translateContentOption ? targetLanguage : '');
 
                 commentsXML += `<ns0:entry><ns0:category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${commentId}</ns0:id><ns0:published>${commentDate}</ns0:published><ns0:author><ns0:name>${commentAuthor}</ns0:name><ns0:email>${commentEmail}</ns0:email><ns0:uri>${commentUrl}</ns0:uri></ns0:author><ns0:title type="text"><![CDATA[${commentContent.substring(0, 50)}...]]></ns0:title><ns0:content type="html"><![CDATA[${formattedCommentContent}]]></ns0:content><ns1:in-reply-to xmlns:ns1="http://purl.org/syndication/thread/1.0" ref="${postId}" type="application/atom+xml"/></ns0:entry>`;
 
@@ -477,7 +403,7 @@
           });
 
           status.textContent = `تم التحويل بنجاح! تم إنشاء ${fileParts.length} ملف${fileParts.length > 1 ? 'ات' : ''} وجارٍ التنزيل...`;
-          updateProgress(totalItems, totalItems);
+          updateProgress(totalItems, totalItems); // التأكد من أن الشريط يصل إلى 100%
         } catch (error) {
           status.textContent = 'حدث خطأ أثناء التحويل: ' + error.message;
           document.getElementById('progressContainer').style.display = 'none';
