@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title data-i18n="title">Convert WordPress to Blogger</title>
+  <title>Convert WordPress to Blogger</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- استدعاء مكتبة xml-js من الملف المحلي -->
-  <script src="xml-js.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xml-js@1.6.11/dist/xml-js.min.js"></script>
   <style>
     /* تنسيق شريط التقدم */
     .progress-container {
@@ -27,9 +26,17 @@
       font-weight: bold;
       line-height: 1.5rem;
     }
+    /* إزالة التنسيقات الخارجية لتجنب التداخل مع بلوجر */
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      min-height: auto;
+      display: block;
+    }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+<body>
   <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
     <h1 class="text-2xl font-bold mb-6 text-center text-blue-600" data-i18n="title">Convert WordPress to Blogger</h1>
 
@@ -95,8 +102,8 @@
     </div>
   </div>
 
-  <!-- مكتبة FileSaver.js المحدثة -->
   <script>
+    // مكتبة FileSaver.js المحدثة
     (function(global) {
       function saveAs(blob, name) {
         const url = window.URL.createObjectURL(blob);
@@ -110,11 +117,8 @@
       }
       global.saveAs = saveAs;
     })(this);
-  </script>
 
-  <!-- الكود الرئيسي لتحويل الملف -->
-  <script>
-    // قاموس الترجمات للواجهة
+    // الكود الرئيسي لتحويل الملف
     const translations = {
       en: {
         title: "Convert WordPress to Blogger",
@@ -237,19 +241,16 @@
       document.documentElement.lang = lang;
       document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
 
-      // تحديث النصوص في الواجهة
       document.querySelectorAll("[data-i18n]").forEach(element => {
         const key = element.getAttribute("data-i18n");
         element.textContent = translations[lang][key];
       });
 
-      // تحديث النصوص الخاصة بـ placeholder
       document.querySelectorAll("[data-i18n-placeholder]").forEach(element => {
         const key = element.getAttribute("data-i18n-placeholder");
         element.placeholder = translations[lang][key];
       });
 
-      // تحديث النصوص داخل القوائم المنسدلة (مثل قائمة اختيار اللغة المستهدفة)
       const targetLangSelect = document.getElementById("targetLanguage");
       const selectedValue = targetLangSelect.value;
       targetLangSelect.innerHTML = `
@@ -261,29 +262,24 @@
       `;
     }
 
-    // تعيين اللغة الافتراضية (الإنجليزية) عند التحميل
     document.addEventListener("DOMContentLoaded", () => {
       updateInterfaceLanguage("en");
     });
 
-    // الاستماع لتغيير اللغة في القائمة المنسدلة
     document.getElementById("languageSelect").addEventListener("change", function () {
       const selectedLang = this.value;
       updateInterfaceLanguage(selectedLang);
     });
 
-    // تفعيل/تعطيل قائمة اختيار اللغة بناءً على خيار الترجمة
     document.getElementById('translateContent').addEventListener('change', function () {
       const targetLanguageSelect = document.getElementById('targetLanguage');
       targetLanguageSelect.disabled = !this.checked;
       if (!this.checked) {
         targetLanguageSelect.value = '';
       }
-      // تحديث النصوص بناءً على اللغة الحالية
       updateInterfaceLanguage(document.getElementById("languageSelect").value);
     });
 
-    // دالة لتحديث شريط التقدم
     function updateProgress(current, total) {
       const progressBar = document.getElementById('progressBar');
       const progressContainer = document.getElementById('progressContainer');
@@ -293,7 +289,6 @@
       progressBar.textContent = `${Math.round(percentage)}%`;
     }
 
-    // دالة لترجمة النص باستخدام Google Translate API (غير رسمية)
     async function translateText(text, targetLang) {
       if (!text || targetLang === '') return text;
       try {
@@ -313,7 +308,6 @@
       }
     }
 
-    // دالة لترجمة المحتوى مع الحفاظ على بنية HTML
     async function translateContent(content, targetLang) {
       if (!content || targetLang === '') return content;
       const htmlPattern = /(<[^>]+>)/g;
@@ -327,7 +321,6 @@
       return translatedParts.join('');
     }
 
-    // تحويل تاريخ ووردبريس إلى تاريخ بلوجر (تنسيق محسّن)
     function convertDate(wpDate) {
       const date = new Date(wpDate);
       const day = String(date.getDate()).padStart(2, '0');
@@ -338,7 +331,6 @@
       return `${day}/${month}/${year} ${hours}:${minutes}`;
     }
 
-    // تحويل تاريخ ووردبريس إلى صيغة ISO مع التحقق من الصحة
     function convertToISODate(wpDate, fallbackDate) {
       const datePattern = /^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} \+\d{4}$/;
       if (!datePattern.test(wpDate)) {
@@ -351,7 +343,6 @@
       return date.toISOString();
     }
 
-    // استبدال روابط الصور بمسار جديد إذا تم تحديده
     function replaceImageUrls(content, imagePath) {
       if (!imagePath) return content;
       const imageUrlPattern = /<img[^>]+src=["'](.*?)["']/g;
@@ -361,7 +352,6 @@
       });
     }
 
-    // تحويل روابط الفيديو إلى فيديو مدمج (إذا تم تفعيل الخيار)
     function embedVideos(content) {
       const youtubePattern = /(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11}))/g;
       return content.replace(youtubePattern, (match, url, videoId) => {
@@ -369,7 +359,6 @@
       });
     }
 
-    // تحويل الروابط النصية: Mediafire قابلة للنقر، Mega بلون وردي، والباقي بلون أخضر
     function makeLinksClickable(content) {
       const urlPattern = /(^|\s)(https?:\/\/[^\s<>"']+)(?=\s|$|[.,!?])/g;
       return content.replace(urlPattern, (match, prefix, url) => {
@@ -384,37 +373,24 @@
       });
     }
 
-    // تنسيق المحتوى (الإبقاء على الصور مع جميع السمات)
     async function formatContent(content, convertLinks, embedVideosOption, targetLang) {
       let formattedContent = content;
-
-      // إزالة عناصر <a> و<h2> فقط، مع الإبقاء على <img> بجميع السمات
       formattedContent = formattedContent.replace(/<a[^>]+href=["'](.*?)["'][^>]*>(.*?)<\/a>/g, '$1');
       formattedContent = formattedContent.replace(/<\/?h[1-6][^>]*>/g, '');
-
-      // استبدال التواريخ
       const datePattern = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}/g;
       formattedContent = formattedContent.replace(datePattern, (date) => `<strong>${convertDate(date)}</strong>`);
-
-      // تطبيق خيار تضمين الفيديوهات (قبل تحويل الروابط لتجنب التداخل)
       if (embedVideosOption) {
         formattedContent = embedVideos(formattedContent);
       }
-
-      // تطبيق خيار تحويل الروابط إلى روابط قابلة للنقر
       if (convertLinks) {
         formattedContent = makeLinksClickable(formattedContent);
       }
-
-      // ترجمة المحتوى إذا تم تفعيل الخيار
       if (targetLang) {
         formattedContent = await translateContent(formattedContent, targetLang);
       }
-
       return formattedContent;
     }
 
-    // تحويل الملف
     document.getElementById('convertBtn').addEventListener('click', async function () {
       const fileInput = document.getElementById('xmlFile');
       const imagePath = document.getElementById('imagePath').value.trim();
@@ -444,30 +420,23 @@
         status.textContent = translations[currentLang].converting + (translateContentOption ? ' ' + translations[currentLang].translationMayTakeTime : '');
 
         try {
-          // تحويل XML إلى JSON باستخدام xml-js
           const json = xml2js(xmlContent, { compact: true, spaces: 2 });
           const channel = json.rss.channel;
           const entries = channel.item;
 
-          // استخراج بيانات المؤلف العامة (إن وجدت)
           const defaultAuthor = {
             name: channel['dc:creator']?._text || 'Unknown Author',
             email: 'unknown@example.com',
             uri: channel.link?._text || 'https://example.com'
           };
 
-          // رأس الملف (مطابق للملف المرفق، بدون فراغات)
           const header = `<?xml version="1.0" encoding="UTF-8"?><ns0:feed xmlns:ns0="http://www.w3.org/2005/Atom"><ns0:link rel="self" href="${channel.link._text || 'https://example.com'}" type="application/atom+xml"/><ns0:link rel="alternate" href="${channel.link._text || 'https://example.com'}" type="text/html"/>`;
-
           const footer = `</ns0:feed>`;
-
-          // الحد الأقصى لحجم الملف (1MB = 1048576 بايت)
           const MAX_FILE_SIZE = 1048576;
           let currentFileContent = header;
           let fileParts = [];
           let partNumber = 1;
 
-          // حساب العدد الكلي للعناصر (المقالات + التعليقات) لتحديد التقدم
           const entriesArray = Array.isArray(entries) ? entries : [entries];
           let totalItems = entriesArray.length;
           if (!removeComments) {
@@ -478,15 +447,13 @@
           }
           let processedItems = 0;
 
-          // تحديث التقدم
           updateProgress(processedItems, totalItems);
 
-          // تحويل كل مقالة
           for (const [index, item] of entriesArray.entries()) {
-            const postId = `post-${index}`; // معرف فريد للمقالة
+            const postId = `post-${index}`;
             let title = item.title._text || item.title._cdata || 'بدون عنوان';
             let content = item['content:encoded']._cdata || item['content:encoded']._text || '';
-            const pubDate = convertToISODate(item.pubDate._text); // تحويل التاريخ إلى صيغة ISO
+            const pubDate = convertToISODate(item.pubDate._text);
             const categories = item.category || [];
             const author = {
               name: item['dc:creator']?._text || defaultAuthor.name,
@@ -494,24 +461,19 @@
               uri: item.link?._text || defaultAuthor.uri
             };
 
-            // ترجمة العنوان إذا تم تفعيل الخيار
             if (translateContentOption) {
               title = await translateText(title, targetLanguage);
             }
 
-            // تنسيق المحتوى مع تطبيق الخيارات
             let updatedContent = replaceImageUrls(content, imagePath);
             updatedContent = await formatContent(updatedContent, convertLinks, embedVideosOption, translateContentOption ? targetLanguage : '');
             updatedContent = `${updatedContent}<br/><br/>Publication Date: <strong>${convertDate(item.pubDate._text)}</strong>`;
 
-            // تحديث التقدم بعد معالجة المقالة
             processedItems++;
             updateProgress(processedItems, totalItems);
 
-            // إنشاء المقالة بدون فراغات أو أسطر فارغة
             let entryXML = `<ns0:entry><ns0:category term="http://schemas.google.com/blogger/2008/kind#post" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${postId}</ns0:id><ns0:link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/><ns0:title type="html"><![CDATA[${title}]]></ns0:title><ns0:content type="html"><![CDATA[${updatedContent}]]></ns0:content><ns0:published>${pubDate}</ns0:published><ns0:author><ns0:name>${author.name}</ns0:name><ns0:email>${author.email}</ns0:email><ns0:uri>${author.uri}</ns0:uri></ns0:author>`;
 
-            // إضافة التصنيفات (labels) من ملف ووردبريس مع الترجمة
             if (Array.isArray(categories)) {
               for (const category of categories) {
                 let catName = category._text || category._cdata;
@@ -532,7 +494,6 @@
 
             entryXML += `</ns0:entry>`;
 
-            // استخراج وتحويل التعليقات (إن وجدت) إذا لم يتم تفعيل خيار إزالتها
             let commentsXML = '';
             if (!removeComments) {
               const comments = item['wp:comment'] || [];
@@ -548,22 +509,17 @@
                 let commentContent = comment['wp:comment_content']._text || comment['wp:comment_content']._cdata || '';
                 const commentDate = convertToISODate(comment['wp:comment_date']._text || item.pubDate._text, item.pubDate._text);
 
-                // تنسيق محتوى التعليق مع تطبيق الخيارات
                 const formattedCommentContent = await formatContent(commentContent, convertLinks, embedVideosOption, translateContentOption ? targetLanguage : '');
 
                 commentsXML += `<ns0:entry><ns0:category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${commentId}</ns0:id><ns0:published>${commentDate}</ns0:published><ns0:author><ns0:name>${commentAuthor}</ns0:name><ns0:email>${commentEmail}</ns0:email><ns0:uri>${commentUrl}</ns0:uri></ns0:author><ns0:title type="text"><![CDATA[${commentContent.substring(0, 50)}...]]></ns0:title><ns0:content type="html"><![CDATA[${formattedCommentContent}]]></ns0:content><ns1:in-reply-to xmlns:ns1="http://purl.org/syndication/thread/1.0" ref="${postId}" type="application/atom+xml"/></ns0:entry>`;
 
-                // تحديث التقدم بعد معالجة التعليق
                 processedItems++;
                 updateProgress(processedItems, totalItems);
               }
             }
 
-            // إضافة المقالة والتعليقات إلى المحتوى الحالي
             const newContent = entryXML + commentsXML;
             const tempContent = currentFileContent + newContent;
-
-            // حساب الحجم (بالبايت)
             const sizeInBytes = new TextEncoder().encode(tempContent).length;
 
             if (sizeInBytes > MAX_FILE_SIZE) {
@@ -574,17 +530,15 @@
             }
           }
 
-          // إضافة المحتوى المتبقي كملف أخير
           fileParts.push(currentFileContent + footer);
 
-          // تنزيل الملفات
           fileParts.forEach((partContent, index) => {
             const blob = new Blob([partContent], { type: 'application/xml' });
             saveAs(blob, `blogger-feed-part${index + 1}.xml`);
           });
 
           status.textContent = translations[currentLang].conversionSuccess.replace('{count}', fileParts.length);
-          updateProgress(totalItems, totalItems); // التأكد من أن الشريط يصل إلى 100%
+          updateProgress(totalItems, totalItems);
         } catch (error) {
           status.textContent = 'An error occurred during conversion: ' + error.message;
           document.getElementById('progressContainer').style.display = 'none';
