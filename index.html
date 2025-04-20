@@ -195,12 +195,18 @@
       });
     }
 
-    // تحويل الروابط النصية المستقلة فقط إلى روابط قابلة للنقر (إذا تم تفعيل الخيار)
+    // تحويل الروابط النصية: Mediafire قابلة للنقر، Mega بلون وردي، والباقي بلون أخضر
     function makeLinksClickable(content) {
       const urlPattern = /(^|\s)(https?:\/\/[^\s<>"']+)(?=\s|$|[.,!?])/g;
       return content.replace(urlPattern, (match, prefix, url) => {
         if (url.includes('youtube.com') || url.includes('youtu.be')) return match;
-        return `${prefix}<a href="${url}" style="color: #1a73e8; text-decoration: underline;" target="_blank">${url}</a>`;
+        if (url.includes('mediafire.com')) {
+          return `${prefix}<a href="${url}" style="color: #1a73e8; text-decoration: underline;" target="_blank">${url}</a>`;
+        }
+        if (url.includes('mega.nz')) {
+          return `${prefix}<span style="color: #e0245e;">${url}</span>`;
+        }
+        return `${prefix}<span style="color: #008000;">${url}</span>`;
       });
     }
 
