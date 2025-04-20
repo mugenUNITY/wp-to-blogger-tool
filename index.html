@@ -53,9 +53,13 @@
       return `${day}/${month}/${year} ${hours}:${minutes}`;
     }
 
-    // تحويل تاريخ ووردبريس إلى صيغة ISO
-    function convertToISODate(wpDate) {
+    // تحويل تاريخ ووردبريس إلى صيغة ISO مع التحقق من الصحة
+    function convertToISODate(wpDate, fallbackDate) {
       const date = new Date(wpDate);
+      if (isNaN(date.getTime())) {
+        // إذا كان التاريخ غير صالح، استخدم التاريخ الاحتياطي
+        return fallbackDate ? new Date(fallbackDate).toISOString() : new Date().toISOString();
+      }
       return date.toISOString(); // تنسيق ISO مثل 2015-03-13T00:44:54Z
     }
 
@@ -65,17 +69,16 @@
       const imageUrlPattern = /<img[^>]+src=["'](.*?)["']/g;
       return content.replace(imageUrlPattern, (match, url) => {
         const newUrl = imagePath + url.substring(url.lastIndexOf('/') + 1);
-        return newUrl; // إدراج الرابط كنص خام
+        return match.replace(url, newUrl); // استبدال الرابط مع الإبقاء على بنية <img>
       });
     }
 
-    // تنسيق المحتوى (تحويل كل شيء إلى نصوص خام)
+    // تنسيق المحتوى (الإبقاء على الصور كما هي)
     function formatContent(content) {
       let formattedContent = content;
 
-      // إزالة عناصر HTML مثل <a>, <img>, <h2> وتحويلها إلى نصوص خام
+      // إزالة عناصر <a> و<h2> فقط، مع الإبقاء على <img>
       formattedContent = formattedContent.replace(/<a[^>]+href=["'](.*?)["'][^>]*>(.*?)<\/a>/g, '$1'); // تحويل الروابط إلى نصوص خام
-      formattedContent = formattedContent.replace(/<img[^>]+src=["'](.*?)["'][^>]*>/g, '$1'); // تحويل الصور إلى روابط خام
       formattedContent = formattedContent.replace(/<\/?h[1-6][^>]*>/g, ''); // إزالة عناوين HTML مثل <h2>
 
       // استبدال التواريخ
@@ -173,7 +176,7 @@
               const commentEmail = comment['wp:comment_author_email']?._text || 'anonymous@example.com';
               const commentUrl = comment['wp:comment_author_url']?._text || 'https://example.com';
               const commentContent = comment['wp:comment_content']._text || comment['wp:comment_content']._cdata || '';
-              const commentDate = convertToISODate(comment['wp:comment_date']._text || item.pubDate._text);
+              const commentDate = convertToISODate(comment['wp:comment_date']._text || item.pubDate._text, item.pubDate._text);
 
               commentsXML += `<ns0:entry><ns0:category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${commentId}</ns0:id><ns0:published>${commentDate}</ns0:published><ns0:author><ns0:name>${commentAuthor}</ns0:name><ns0:email>${commentEmail}</ns0:email><ns0:uri>${commentUrl}</ns0:uri></ns0:author><ns0:title type="text"><![CDATA[${commentContent.substring(0, 50)}...]]></ns0:title><ns0:content type="html"><![CDATA[${commentContent}]]></ns0:content><ns1:in-reply-to xmlns:ns1="http://purl.org/syndication/thread/1.0" ref="${postId}" type="application/atom+xml"/></ns0:entry>`;
             });
