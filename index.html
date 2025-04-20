@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>تحويل ملف ووردبريس إلى بلوجر</title>
+  <title data-i18n="title">Convert WordPress to Blogger</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- استدعاء مكتبة xml-js من الملف المحلي -->
   <script src="xml-js.min.js"></script>
@@ -31,50 +31,64 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
   <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
-    <h1 class="text-2xl font-bold mb-6 text-center text-blue-600">تحويل ملف ووردبريس إلى بلوجر</h1>
+    <h1 class="text-2xl font-bold mb-6 text-center text-blue-600" data-i18n="title">Convert WordPress to Blogger</h1>
+
+    <!-- قائمة منسدلة لاختيار اللغة -->
     <div class="mb-4">
-      <label class="block text-gray-700 mb-2 font-medium" for="xmlFile">اختر ملف XML (ووردبريس):</label>
+      <label class="block text-gray-700 mb-2 font-medium" for="languageSelect" data-i18n="selectLanguageLabel">Select Interface Language:</label>
+      <select id="languageSelect" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="en">English</option>
+        <option value="ar">العربية</option>
+        <option value="fr">Français</option>
+        <option value="es">Español</option>
+        <option value="de">Deutsch</option>
+        <option value="it">Italiano</option>
+      </select>
+    </div>
+
+    <div class="mb-4">
+      <label class="block text-gray-700 mb-2 font-medium" for="xmlFile" data-i18n="xmlFileLabel">Choose XML File (WordPress):</label>
       <input type="file" id="xmlFile" accept=".xml" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
     <div class="mb-4">
-      <label class="block text-gray-700 mb-2 font-medium" for="imagePath">مسار استضافة الصور (اختياري):</label>
-      <input type="text" id="imagePath" placeholder="مثال: https://your-host.com/images/" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <label class="block text-gray-700 mb-2 font-medium" for="imagePath" data-i18n="imagePathLabel">Image Hosting Path (Optional):</label>
+      <input type="text" id="imagePath" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" data-i18n-placeholder="imagePathPlaceholder" placeholder="Example: https://your-host.com/images/">
     </div>
     <!-- خيارات موجودة -->
     <div class="mb-4">
       <label class="flex items-center">
         <input type="checkbox" id="convertLinks" class="mr-2">
-        <span class="text-gray-700">جعل الروابط قابلة للنقر ومميزة بلون</span>
+        <span class="text-gray-700" data-i18n="convertLinksLabel">Make Links Clickable and Highlighted</span>
       </label>
     </div>
     <div class="mb-4">
       <label class="flex items-center">
         <input type="checkbox" id="embedVideos" class="mr-2">
-        <span class="text-gray-700">تضمين مقاطع الفيديو (مثل YouTube)</span>
+        <span class="text-gray-700" data-i18n="embedVideosLabel">Embed Videos (e.g., YouTube)</span>
       </label>
     </div>
     <div class="mb-4">
       <label class="flex items-center">
         <input type="checkbox" id="translateContent" class="mr-2">
-        <span class="text-gray-700">ترجمة المحتوى</span>
+        <span class="text-gray-700" data-i18n="translateContentLabel">Translate Content</span>
       </label>
       <select id="targetLanguage" class="mt-2 w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>
-        <option value="" disabled selected>اختر اللغة المستهدفة</option>
+        <option value="" disabled selected data-i18n="selectTargetLanguage">Select Target Language</option>
         <option value="ar">العربية</option>
-        <option value="en">الإنجليزية</option>
-        <option value="es">الإسبانية</option>
-        <option value="fr">الفرنسية</option>
+        <option value="en">English</option>
+        <option value="es">Español</option>
+        <option value="fr">Français</option>
       </select>
     </div>
     <!-- خيار إزالة التعليقات -->
     <div class="mb-4">
       <label class="flex items-center">
         <input type="checkbox" id="removeComments" class="mr-2">
-        <span class="text-gray-700">إزالة التعليقات</span>
+        <span class="text-gray-700" data-i18n="removeCommentsLabel">Remove Comments</span>
       </label>
     </div>
-    <button id="convertBtn" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition duration-200">تحويل وتنزيل</button>
-    <p id="status" class="mt-4 text-center text-gray-600"></p>
+    <button id="convertBtn" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition duration-200" data-i18n="convertButton">Convert and Download</button>
+    <p id="status" class="mt-4 text-center text-gray-600" data-i18n="status"></p>
     <!-- شريط التقدم -->
     <div id="progressContainer" class="progress-container">
       <div id="progressBar" class="progress-bar">0%</div>
@@ -100,6 +114,164 @@
 
   <!-- الكود الرئيسي لتحويل الملف -->
   <script>
+    // قاموس الترجمات للواجهة
+    const translations = {
+      en: {
+        title: "Convert WordPress to Blogger",
+        selectLanguageLabel: "Select Interface Language:",
+        xmlFileLabel: "Choose XML File (WordPress):",
+        imagePathLabel: "Image Hosting Path (Optional):",
+        imagePathPlaceholder: "Example: https://your-host.com/images/",
+        convertLinksLabel: "Make Links Clickable and Highlighted",
+        embedVideosLabel: "Embed Videos (e.g., YouTube)",
+        translateContentLabel: "Translate Content",
+        selectTargetLanguage: "Select Target Language",
+        removeCommentsLabel: "Remove Comments",
+        convertButton: "Convert and Download",
+        status: "",
+        noFileSelected: "Please select an XML file!",
+        noTargetLanguage: "Please select a target language for translation!",
+        converting: "Converting...",
+        translationMayTakeTime: "(Translation may take some time)",
+        conversionSuccess: "Conversion successful! {count} file(s) created and downloading..."
+      },
+      ar: {
+        title: "تحويل ملف ووردبريس إلى بلوجر",
+        selectLanguageLabel: "اختر لغة الواجهة:",
+        xmlFileLabel: "اختر ملف XML (ووردبريس):",
+        imagePathLabel: "مسار استضافة الصور (اختياري):",
+        imagePathPlaceholder: "مثال: https://your-host.com/images/",
+        convertLinksLabel: "جعل الروابط قابلة للنقر ومميزة بلون",
+        embedVideosLabel: "تضمين مقاطع الفيديو (مثل YouTube)",
+        translateContentLabel: "ترجمة المحتوى",
+        selectTargetLanguage: "اختر اللغة المستهدفة",
+        removeCommentsLabel: "إزالة التعليقات",
+        convertButton: "تحويل وتنزيل",
+        status: "",
+        noFileSelected: "الرجاء اختيار ملف XML!",
+        noTargetLanguage: "الرجاء اختيار لغة للترجمة!",
+        converting: "جارٍ التحويل...",
+        translationMayTakeTime: "(قد يستغرق الترجمة بعض الوقت)",
+        conversionSuccess: "تم التحويل بنجاح! تم إنشاء {count} ملف(ات) وجارٍ التنزيل..."
+      },
+      fr: {
+        title: "Convertir un fichier WordPress en Blogger",
+        selectLanguageLabel: "Sélectionnez la langue de l'interface :",
+        xmlFileLabel: "Choisir un fichier XML (WordPress) :",
+        imagePathLabel: "Chemin d'hébergement des images (facultatif) :",
+        imagePathPlaceholder: "Exemple : https://your-host.com/images/",
+        convertLinksLabel: "Rendre les liens cliquables et mis en évidence",
+        embedVideosLabel: "Intégrer des vidéos (par exemple, YouTube)",
+        translateContentLabel: "Traduire le contenu",
+        selectTargetLanguage: "Sélectionner la langue cible",
+        removeCommentsLabel: "Supprimer les commentaires",
+        convertButton: "Convertir et télécharger",
+        status: "",
+        noFileSelected: "Veuillez sélectionner un fichier XML !",
+        noTargetLanguage: "Veuillez sélectionner une langue pour la traduction !",
+        converting: "Conversion en cours...",
+        translationMayTakeTime: "(La traduction peut prendre du temps)",
+        conversionSuccess: "Conversion réussie ! {count} fichier(s) créé(s) et en cours de téléchargement..."
+      },
+      es: {
+        title: "Convertir archivo de WordPress a Blogger",
+        selectLanguageLabel: "Selecciona el idioma de la interfaz:",
+        xmlFileLabel: "Elige un archivo XML (WordPress):",
+        imagePathLabel: "Ruta de alojamiento de imágenes (opcional):",
+        imagePathPlaceholder: "Ejemplo: https://your-host.com/images/",
+        convertLinksLabel: "Hacer los enlaces clicables y destacados",
+        embedVideosLabel: "Incrustar videos (por ejemplo, YouTube)",
+        translateContentLabel: "Traducir contenido",
+        selectTargetLanguage: "Seleccionar idioma objetivo",
+        removeCommentsLabel: "Eliminar comentarios",
+        convertButton: "Convertir y descargar",
+        status: "",
+        noFileSelected: "¡Por favor selecciona un archivo XML!",
+        noTargetLanguage: "¡Por favor selecciona un idioma para la traducción!",
+        converting: "Convirtiendo...",
+        translationMayTakeTime: "(La traducción puede tomar tiempo)",
+        conversionSuccess: "¡Conversión exitosa! {count} archivo(s) creado(s) y descargando..."
+      },
+      de: {
+        title: "WordPress-Datei in Blogger konvertieren",
+        selectLanguageLabel: "Wählen Sie die Sprache der Benutzeroberfläche:",
+        xmlFileLabel: "XML-Datei auswählen (WordPress):",
+        imagePathLabel: "Pfad zum Hosting der Bilder (optional):",
+        imagePathPlaceholder: "Beispiel: https://your-host.com/images/",
+        convertLinksLabel: "Links anklickbar und hervorgehoben machen",
+        embedVideosLabel: "Videos einbetten (z.B. YouTube)",
+        translateContentLabel: "Inhalt übersetzen",
+        selectTargetLanguage: "Zielsprache auswählen",
+        removeCommentsLabel: "Kommentare entfernen",
+        convertButton: "Konvertieren und herunterladen",
+        status: "",
+        noFileSelected: "Bitte wählen Sie eine XML-Datei aus!",
+        noTargetLanguage: "Bitte wählen Sie eine Sprache für die Übersetzung aus!",
+        converting: "Konvertierung läuft...",
+        translationMayTakeTime: "(Die Übersetzung kann einige Zeit dauern)",
+        conversionSuccess: "Konvertierung erfolgreich! {count} Datei(en) erstellt und werden heruntergeladen..."
+      },
+      it: {
+        title: "Converti file WordPress in Blogger",
+        selectLanguageLabel: "Seleziona la lingua dell'interfaccia:",
+        xmlFileLabel: "Scegli un file XML (WordPress):",
+        imagePathLabel: "Percorso di hosting delle immagini (opzionale):",
+        imagePathPlaceholder: "Esempio: https://your-host.com/images/",
+        convertLinksLabel: "Rendi i link cliccabili e evidenziati",
+        embedVideosLabel: "Incorpora video (ad esempio, YouTube)",
+        translateContentLabel: "Traduci contenuto",
+        selectTargetLanguage: "Seleziona la lingua di destinazione",
+        removeCommentsLabel: "Rimuovi i commenti",
+        convertButton: "Converti e scarica",
+        status: "",
+        noFileSelected: "Per favore seleziona un file XML!",
+        noTargetLanguage: "Per favore seleziona una lingua per la traduzione!",
+        converting: "Conversione in corso...",
+        translationMayTakeTime: "(La traduzione potrebbe richiedere del tempo)",
+        conversionSuccess: "Conversione completata con successo! {count} file creati e in fase di download..."
+      }
+    };
+
+    // دالة لتحديث الواجهة بناءً على اللغة المختارة
+    function updateInterfaceLanguage(lang) {
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+
+      // تحديث النصوص في الواجهة
+      document.querySelectorAll("[data-i18n]").forEach(element => {
+        const key = element.getAttribute("data-i18n");
+        element.textContent = translations[lang][key];
+      });
+
+      // تحديث النصوص الخاصة بـ placeholder
+      document.querySelectorAll("[data-i18n-placeholder]").forEach(element => {
+        const key = element.getAttribute("data-i18n-placeholder");
+        element.placeholder = translations[lang][key];
+      });
+
+      // تحديث النصوص داخل القوائم المنسدلة (مثل قائمة اختيار اللغة المستهدفة)
+      const targetLangSelect = document.getElementById("targetLanguage");
+      const selectedValue = targetLangSelect.value;
+      targetLangSelect.innerHTML = `
+        <option value="" disabled ${!selectedValue ? "selected" : ""} data-i18n="selectTargetLanguage">${translations[lang].selectTargetLanguage}</option>
+        <option value="ar" ${selectedValue === "ar" ? "selected" : ""}>${lang === "ar" ? "العربية" : "Arabic"}</option>
+        <option value="en" ${selectedValue === "en" ? "selected" : ""}>${lang === "ar" ? "الإنجليزية" : "English"}</option>
+        <option value="es" ${selectedValue === "es" ? "selected" : ""}>${lang === "ar" ? "الإسبانية" : "Spanish"}</option>
+        <option value="fr" ${selectedValue === "fr" ? "selected" : ""}>${lang === "ar" ? "الفرنسية" : "French"}</option>
+      `;
+    }
+
+    // تعيين اللغة الافتراضية (الإنجليزية) عند التحميل
+    document.addEventListener("DOMContentLoaded", () => {
+      updateInterfaceLanguage("en");
+    });
+
+    // الاستماع لتغيير اللغة في القائمة المنسدلة
+    document.getElementById("languageSelect").addEventListener("change", function () {
+      const selectedLang = this.value;
+      updateInterfaceLanguage(selectedLang);
+    });
+
     // تفعيل/تعطيل قائمة اختيار اللغة بناءً على خيار الترجمة
     document.getElementById('translateContent').addEventListener('change', function () {
       const targetLanguageSelect = document.getElementById('targetLanguage');
@@ -107,6 +279,8 @@
       if (!this.checked) {
         targetLanguageSelect.value = '';
       }
+      // تحديث النصوص بناءً على اللغة الحالية
+      updateInterfaceLanguage(document.getElementById("languageSelect").value);
     });
 
     // دالة لتحديث شريط التقدم
@@ -250,14 +424,15 @@
       const targetLanguage = document.getElementById('targetLanguage').value;
       const removeComments = document.getElementById('removeComments').checked;
       const status = document.getElementById('status');
+      const currentLang = document.getElementById('languageSelect').value;
 
       if (!fileInput.files.length) {
-        status.textContent = 'الرجاء اختيار ملف XML!';
+        status.textContent = translations[currentLang].noFileSelected;
         return;
       }
 
       if (translateContentOption && !targetLanguage) {
-        status.textContent = 'الرجاء اختيار لغة للترجمة!';
+        status.textContent = translations[currentLang].noTargetLanguage;
         return;
       }
 
@@ -266,7 +441,7 @@
 
       reader.onload = async function (e) {
         const xmlContent = e.target.result;
-        status.textContent = 'جارٍ التحويل...' + (translateContentOption ? ' (قد يستغرق الترجمة بعض الوقت)' : '');
+        status.textContent = translations[currentLang].converting + (translateContentOption ? ' ' + translations[currentLang].translationMayTakeTime : '');
 
         try {
           // تحويل XML إلى JSON باستخدام xml-js
@@ -408,10 +583,10 @@
             saveAs(blob, `blogger-feed-part${index + 1}.xml`);
           });
 
-          status.textContent = `تم التحويل بنجاح! تم إنشاء ${fileParts.length} ملف${fileParts.length > 1 ? 'ات' : ''} وجارٍ التنزيل...`;
+          status.textContent = translations[currentLang].conversionSuccess.replace('{count}', fileParts.length);
           updateProgress(totalItems, totalItems); // التأكد من أن الشريط يصل إلى 100%
         } catch (error) {
-          status.textContent = 'حدث خطأ أثناء التحويل: ' + error.message;
+          status.textContent = 'An error occurred during conversion: ' + error.message;
           document.getElementById('progressContainer').style.display = 'none';
         }
       };
