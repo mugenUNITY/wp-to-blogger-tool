@@ -55,12 +55,16 @@
 
     // تحويل تاريخ ووردبريس إلى صيغة ISO مع التحقق من الصحة
     function convertToISODate(wpDate, fallbackDate) {
-      const date = new Date(wpDate);
-      if (isNaN(date.getTime())) {
-        // إذا كان التاريخ غير صالح، استخدم التاريخ الاحتياطي
+      // التحقق من تنسيق التاريخ باستخدام تعبير منتظم
+      const datePattern = /^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} \+\d{4}$/;
+      if (!datePattern.test(wpDate)) {
         return fallbackDate ? new Date(fallbackDate).toISOString() : new Date().toISOString();
       }
-      return date.toISOString(); // تنسيق ISO مثل 2015-03-13T00:44:54Z
+      const date = new Date(wpDate);
+      if (isNaN(date.getTime())) {
+        return fallbackDate ? new Date(fallbackDate).toISOString() : new Date().toISOString();
+      }
+      return date.toISOString();
     }
 
     // استبدال روابط الصور بمسار جديد إذا تم تحديده
@@ -69,17 +73,17 @@
       const imageUrlPattern = /<img[^>]+src=["'](.*?)["']/g;
       return content.replace(imageUrlPattern, (match, url) => {
         const newUrl = imagePath + url.substring(url.lastIndexOf('/') + 1);
-        return match.replace(url, newUrl); // استبدال الرابط مع الإبقاء على بنية <img>
+        return match.replace(url, newUrl); // الحفاظ على بنية <img> مع استبدال الرابط فقط
       });
     }
 
-    // تنسيق المحتوى (الإبقاء على الصور كما هي)
+    // تنسيق المحتوى (الإبقاء على الصور مع جميع السمات)
     function formatContent(content) {
       let formattedContent = content;
 
-      // إزالة عناصر <a> و<h2> فقط، مع الإبقاء على <img>
-      formattedContent = formattedContent.replace(/<a[^>]+href=["'](.*?)["'][^>]*>(.*?)<\/a>/g, '$1'); // تحويل الروابط إلى نصوص خام
-      formattedContent = formattedContent.replace(/<\/?h[1-6][^>]*>/g, ''); // إزالة عناوين HTML مثل <h2>
+      // إزالة عناصر <a> و<h2> فقط، مع الإبقاء على <img> بجميع السمات
+      formattedContent = formattedContent.replace(/<a[^>]+href=["'](.*?)["'][^>]*>(.*?)<\/a>/g, '$1');
+      formattedContent = formattedContent.replace(/<\/?h[1-6][^>]*>/g, '');
 
       // استبدال التواريخ
       const datePattern = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}/g;
@@ -169,9 +173,12 @@
             // استخراج وتحويل التعليقات (إن وجدت)
             const comments = item['wp:comment'] || [];
             let commentsXML = '';
+            const processedCommentIds = new Set(); // لتتبع التعليقات المكررة
             (Array.isArray(comments) ? comments : [comments]).forEach((comment, commentIndex) => {
               if (!comment['wp:comment_content']) return; // تجاهل التعليقات الفارغة
               const commentId = `${postId}-comment-${commentIndex}`;
+              if (processedCommentIds.has(commentId)) return; // تجاهل التعليقات المكررة
+              processedCommentIds.add(commentId);
               const commentAuthor = comment['wp:comment_author']?._text || 'Anonymous';
               const commentEmail = comment['wp:comment_author_email']?._text || 'anonymous@example.com';
               const commentUrl = comment['wp:comment_author_url']?._text || 'https://example.com';
