@@ -19,7 +19,7 @@
       <label class="block text-gray-700 mb-2 font-medium" for="imagePath">مسار استضافة الصور (اختياري):</label>
       <input type="text" id="imagePath" placeholder="مثال: https://your-host.com/images/" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
-    <!-- خيارات جديدة -->
+    <!-- خيارات موجودة -->
     <div class="mb-4">
       <label class="flex items-center">
         <input type="checkbox" id="convertLinks" class="mr-2">
@@ -31,6 +31,20 @@
         <input type="checkbox" id="embedVideos" class="mr-2">
         <span class="text-gray-700">تضمين مقاطع الفيديو (مثل YouTube)</span>
       </label>
+    </div>
+    <!-- خيار الترجمة الجديد -->
+    <div class="mb-4">
+      <label class="flex items-center">
+        <input type="checkbox" id="translateContent" class="mr-2">
+        <span class="text-gray-700">ترجمة المحتوى</span>
+      </label>
+      <select id="targetLanguage" class="mt-2 w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>
+        <option value="" disabled selected>اختر اللغة المستهدفة</option>
+        <option value="ar">العربية</option>
+        <option value="en">الإنجليزية</option>
+        <option value="es">الإسبانية</option>
+        <option value="fr">الفرنسية</option>
+      </select>
     </div>
     <button id="convertBtn" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition duration-200">تحويل وتنزيل</button>
     <p id="status" class="mt-4 text-center text-gray-600"></p>
@@ -55,6 +69,52 @@
 
   <!-- الكود الرئيسي لتحويل الملف -->
   <script>
+    // تفعيل/تعطيل قائمة اختيار اللغة بناءً على خيار الترجمة
+    document.getElementById('translateContent').addEventListener('change', function () {
+      const targetLanguageSelect = document.getElementById('targetLanguage');
+      targetLanguageSelect.disabled = !this.checked;
+      if (!this.checked) {
+        targetLanguageSelect.value = '';
+      }
+    });
+
+    // دالة لترجمة النص باستخدام Google Translate API (غير رسمية)
+    async function translateText(text, targetLang) {
+      if (!text || targetLang === '') return text;
+      try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        // استخراج النص المترجم
+        let translatedText = '';
+        if (data && data[0]) {
+          data[0].forEach(segment => {
+            if (segment[0]) translatedText += segment[0];
+          });
+        }
+        return translatedText || text;
+      } catch (error) {
+        console.error('Translation error:', error);
+        return text; // إرجاع النص الأصلي في حالة الخطأ
+      }
+    }
+
+    // دالة لترجمة المحتوى مع الحفاظ على بنية HTML
+    async function translateContent(content, targetLang) {
+      if (!content || targetLang === '') return content;
+
+      // استخراج النصوص القابلة للترجمة (تجاهل عناصر HTML)
+      const htmlPattern = /(<[^>]+>)/g;
+      const parts = content.split(htmlPattern);
+      const translatedParts = await Promise.all(parts.map(async (part) => {
+        if (htmlPattern.test(part)) {
+          return part; // الحفاظ على عناصر HTML كما هي
+        }
+        return await translateText(part, targetLang);
+      }));
+      return translatedParts.join('');
+    }
+
     // تحويل تاريخ ووردبريس إلى تاريخ بلوجر (تنسيق محسّن)
     function convertDate(wpDate) {
       const date = new Date(wpDate);
@@ -99,17 +159,15 @@
 
     // تحويل الروابط النصية المستقلة فقط إلى روابط قابلة للنقر (إذا تم تفعيل الخيار)
     function makeLinksClickable(content) {
-      // التعبير المنتظم لمطابقة الروابط النصية المستقلة فقط (وليس داخل السمات مثل src أو href)
       const urlPattern = /(^|\s)(https?:\/\/[^\s<>"']+)(?=\s|$|[.,!?])/g;
       return content.replace(urlPattern, (match, prefix, url) => {
-        // تجنب تحويل روابط YouTube إذا تم تحويلها بالفعل إلى iframe
         if (url.includes('youtube.com') || url.includes('youtu.be')) return match;
         return `${prefix}<a href="${url}" style="color: #1a73e8; text-decoration: underline;" target="_blank">${url}</a>`;
       });
     }
 
     // تنسيق المحتوى (الإبقاء على الصور مع جميع السمات)
-    function formatContent(content, convertLinks, embedVideosOption) {
+    async function formatContent(content, convertLinks, embedVideosOption, targetLang) {
       let formattedContent = content;
 
       // إزالة عناصر <a> و<h2> فقط، مع الإبقاء على <img> بجميع السمات
@@ -130,15 +188,22 @@
         formattedContent = makeLinksClickable(formattedContent);
       }
 
+      // ترجمة المحتوى إذا تم تفعيل الخيار
+      if (targetLang) {
+        formattedContent = await translateContent(formattedContent, targetLang);
+      }
+
       return formattedContent;
     }
 
     // تحويل الملف
-    document.getElementById('convertBtn').addEventListener('click', function () {
+    document.getElementById('convertBtn').addEventListener('click', async function () {
       const fileInput = document.getElementById('xmlFile');
       const imagePath = document.getElementById('imagePath').value.trim();
       const convertLinks = document.getElementById('convertLinks').checked;
       const embedVideosOption = document.getElementById('embedVideos').checked;
+      const translateContentOption = document.getElementById('translateContent').checked;
+      const targetLanguage = document.getElementById('targetLanguage').value;
       const status = document.getElementById('status');
 
       if (!fileInput.files.length) {
@@ -146,12 +211,17 @@
         return;
       }
 
+      if (translateContentOption && !targetLanguage) {
+        status.textContent = 'الرجاء اختيار لغة للترجمة!';
+        return;
+      }
+
       const file = fileInput.files[0];
       const reader = new FileReader();
 
-      reader.onload = function (e) {
+      reader.onload = async function (e) {
         const xmlContent = e.target.result;
-        status.textContent = 'جارٍ التحويل...';
+        status.textContent = 'جارٍ التحويل...' + (translateContentOption ? ' (قد يستغرق الترجمة بعض الوقت)' : '');
 
         try {
           // تحويل XML إلى JSON باستخدام xml-js
@@ -178,10 +248,10 @@
           let partNumber = 1;
 
           // تحويل كل مقالة
-          (Array.isArray(entries) ? entries : [entries]).forEach((item, index) => {
+          for (const [index, item] of (Array.isArray(entries) ? entries : [entries]).entries()) {
             const postId = `post-${index}`; // معرف فريد للمقالة
-            const title = item.title._text || item.title._cdata || 'بدون عنوان';
-            const content = item['content:encoded']._cdata || item['content:encoded']._text || '';
+            let title = item.title._text || item.title._cdata || 'بدون عنوان';
+            let content = item['content:encoded']._cdata || item['content:encoded']._text || '';
             const pubDate = convertToISODate(item.pubDate._text); // تحويل التاريخ إلى صيغة ISO
             const categories = item.category || [];
             const author = {
@@ -190,24 +260,35 @@
               uri: item.link?._text || defaultAuthor.uri
             };
 
+            // ترجمة العنوان إذا تم تفعيل الخيار
+            if (translateContentOption) {
+              title = await translateText(title, targetLanguage);
+            }
+
             // تنسيق المحتوى مع تطبيق الخيارات
             let updatedContent = replaceImageUrls(content, imagePath);
-            updatedContent = formatContent(updatedContent, convertLinks, embedVideosOption);
+            updatedContent = await formatContent(updatedContent, convertLinks, embedVideosOption, translateContentOption ? targetLanguage : '');
             updatedContent = `${updatedContent}<br/><br/>Publication Date: <strong>${convertDate(item.pubDate._text)}</strong>`;
 
             // إنشاء المقالة بدون فراغات أو أسطر فارغة
             let entryXML = `<ns0:entry><ns0:category term="http://schemas.google.com/blogger/2008/kind#post" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${postId}</ns0:id><ns0:link rel="self" href="${item.link._text || 'https://example.com'}" type="application/atom+xml"/><ns0:title type="html"><![CDATA[${title}]]></ns0:title><ns0:content type="html"><![CDATA[${updatedContent}]]></ns0:content><ns0:published>${pubDate}</ns0:published><ns0:author><ns0:name>${author.name}</ns0:name><ns0:email>${author.email}</ns0:email><ns0:uri>${author.uri}</ns0:uri></ns0:author>`;
 
-            // إضافة التصنيفات (labels) من ملف ووردبريس
+            // إضافة التصنيفات (labels) من ملف ووردبريس مع الترجمة
             if (Array.isArray(categories)) {
-              categories.forEach(category => {
-                const catName = category._text || category._cdata;
+              for (const category of categories) {
+                let catName = category._text || category._cdata;
+                if (catName && translateContentOption) {
+                  catName = await translateText(catName, targetLanguage);
+                }
                 if (catName) {
                   entryXML += `<ns0:category term="${catName}"/>`;
                 }
-              });
+              }
             } else if (categories._text || categories._cdata) {
-              const catName = categories._text || categories._cdata;
+              let catName = categories._text || categories._cdata;
+              if (catName && translateContentOption) {
+                catName = await translateText(catName, targetLanguage);
+              }
               entryXML += `<ns0:category term="${catName}"/>`;
             }
 
@@ -217,22 +298,22 @@
             const comments = item['wp:comment'] || [];
             let commentsXML = '';
             const processedCommentIds = new Set(); // لتتبع التعليقات المكررة
-            (Array.isArray(comments) ? comments : [comments]).forEach((comment, commentIndex) => {
-              if (!comment['wp:comment_content']) return; // تجاهل التعليقات الفارغة
+            for (const [commentIndex, comment] of (Array.isArray(comments) ? comments : [comments]).entries()) {
+              if (!comment['wp:comment_content']) continue; // تجاهل التعليقات الفارغة
               const commentId = `${postId}-comment-${commentIndex}`;
-              if (processedCommentIds.has(commentId)) return; // تجاهل التعليقات المكررة
+              if (processedCommentIds.has(commentId)) continue; // تجاهل التعليقات المكررة
               processedCommentIds.add(commentId);
               const commentAuthor = comment['wp:comment_author']?._text || 'Anonymous';
               const commentEmail = comment['wp:comment_author_email']?._text || 'anonymous@example.com';
               const commentUrl = comment['wp:comment_author_url']?._text || 'https://example.com';
-              const commentContent = comment['wp:comment_content']._text || comment['wp:comment_content']._cdata || '';
+              let commentContent = comment['wp:comment_content']._text || comment['wp:comment_content']._cdata || '';
               const commentDate = convertToISODate(comment['wp:comment_date']._text || item.pubDate._text, item.pubDate._text);
 
               // تنسيق محتوى التعليق مع تطبيق الخيارات
-              const formattedCommentContent = formatContent(commentContent, convertLinks, embedVideosOption);
+              const formattedCommentContent = await formatContent(commentContent, convertLinks, embedVideosOption, translateContentOption ? targetLanguage : '');
 
               commentsXML += `<ns0:entry><ns0:category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${commentId}</ns0:id><ns0:published>${commentDate}</ns0:published><ns0:author><ns0:name>${commentAuthor}</ns0:name><ns0:email>${commentEmail}</ns0:email><ns0:uri>${commentUrl}</ns0:uri></ns0:author><ns0:title type="text"><![CDATA[${commentContent.substring(0, 50)}...]]></ns0:title><ns0:content type="html"><![CDATA[${formattedCommentContent}]]></ns0:content><ns1:in-reply-to xmlns:ns1="http://purl.org/syndication/thread/1.0" ref="${postId}" type="application/atom+xml"/></ns0:entry>`;
-            });
+            }
 
             // إضافة المقالة والتعليقات إلى المحتوى الحالي
             const newContent = entryXML + commentsXML;
@@ -248,7 +329,7 @@
             } else {
               currentFileContent = tempContent;
             }
-          });
+          }
 
           // إضافة المحتوى المتبقي كملف أخير
           fileParts.push(currentFileContent + footer);
