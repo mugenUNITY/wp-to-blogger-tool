@@ -19,6 +19,19 @@
       <label class="block text-gray-700 mb-2 font-medium" for="imagePath">مسار استضافة الصور (اختياري):</label>
       <input type="text" id="imagePath" placeholder="مثال: https://your-host.com/images/" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
     </div>
+    <!-- إضافة خيارات جديدة -->
+    <div class="mb-4">
+      <label class="flex items-center">
+        <input type="checkbox" id="convertLinks" class="mr-2">
+        <span class="text-gray-700">جعل الروابط قابلة للنقر ومميزة بلون</span>
+      </label>
+    </div>
+    <div class="mb-4">
+      <label class="flex items-center">
+        <input type="checkbox" id="embedVideos" class="mr-2">
+        <span class="text-gray-700">تضمين مقاطع الفيديو (مثل YouTube)</span>
+      </label>
+    </div>
     <button id="convertBtn" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition duration-200">تحويل وتنزيل</button>
     <p id="status" class="mt-4 text-center text-gray-600"></p>
   </div>
@@ -55,7 +68,6 @@
 
     // تحويل تاريخ ووردبريس إلى صيغة ISO مع التحقق من الصحة
     function convertToISODate(wpDate, fallbackDate) {
-      // التحقق من تنسيق التاريخ باستخدام تعبير منتظم
       const datePattern = /^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} \+\d{4}$/;
       if (!datePattern.test(wpDate)) {
         return fallbackDate ? new Date(fallbackDate).toISOString() : new Date().toISOString();
@@ -73,12 +85,30 @@
       const imageUrlPattern = /<img[^>]+src=["'](.*?)["']/g;
       return content.replace(imageUrlPattern, (match, url) => {
         const newUrl = imagePath + url.substring(url.lastIndexOf('/') + 1);
-        return match.replace(url, newUrl); // الحفاظ على بنية <img> مع استبدال الرابط فقط
+        return match.replace(url, newUrl);
+      });
+    }
+
+    // تحويل روابط الفيديو إلى فيديو مدمج (إذا تم تفعيل الخيار)
+    function embedVideos(content) {
+      const youtubePattern = /(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11}))/g;
+      return content.replace(youtubePattern, (match, url, videoId) => {
+        return `<iframe width="560" height="315" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
+      });
+    }
+
+    // تحويل الروابط إلى روابط قابلة للنقر (إذا تم تفعيل الخيار)
+    function makeLinksClickable(content) {
+      const urlPattern = /(https?:\/\/[^\s<>"']+)/g;
+      return content.replace(urlPattern, (match) => {
+        // تجنب تحويل الروابط الموجودة بالفعل داخل <a> أو <iframe>
+        if (match.includes('youtube.com') || match.includes('youtu.be')) return match;
+        return `<a href="${match}" style="color: #1a73e8; text-decoration: underline;" target="_blank">${match}</a>`;
       });
     }
 
     // تنسيق المحتوى (الإبقاء على الصور مع جميع السمات)
-    function formatContent(content) {
+    function formatContent(content, convertLinks, embedVideosOption) {
       let formattedContent = content;
 
       // إزالة عناصر <a> و<h2> فقط، مع الإبقاء على <img> بجميع السمات
@@ -89,6 +119,16 @@
       const datePattern = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}/g;
       formattedContent = formattedContent.replace(datePattern, (date) => `<strong>${convertDate(date)}</strong>`);
 
+      // تطبيق خيار تحويل الروابط إلى روابط قابلة للنقر
+      if (convertLinks) {
+        formattedContent = makeLinksClickable(formattedContent);
+      }
+
+      // تطبيق خيار تضمين الفيديوهات
+      if (embedVideosOption) {
+        formattedContent = embedVideos(formattedContent);
+      }
+
       return formattedContent;
     }
 
@@ -96,6 +136,8 @@
     document.getElementById('convertBtn').addEventListener('click', function () {
       const fileInput = document.getElementById('xmlFile');
       const imagePath = document.getElementById('imagePath').value.trim();
+      const convertLinks = document.getElementById('convertLinks').checked;
+      const embedVideosOption = document.getElementById('embedVideos').checked;
       const status = document.getElementById('status');
 
       if (!fileInput.files.length) {
@@ -147,9 +189,9 @@
               uri: item.link?._text || defaultAuthor.uri
             };
 
-            // تنسيق المحتوى
+            // تنسيق المحتوى مع تطبيق الخيارات
             let updatedContent = replaceImageUrls(content, imagePath);
-            updatedContent = formatContent(updatedContent);
+            updatedContent = formatContent(updatedContent, convertLinks, embedVideosOption);
             updatedContent = `${updatedContent}<br/><br/>Publication Date: <strong>${convertDate(item.pubDate._text)}</strong>`;
 
             // إنشاء المقالة بدون فراغات أو أسطر فارغة
@@ -185,7 +227,10 @@
               const commentContent = comment['wp:comment_content']._text || comment['wp:comment_content']._cdata || '';
               const commentDate = convertToISODate(comment['wp:comment_date']._text || item.pubDate._text, item.pubDate._text);
 
-              commentsXML += `<ns0:entry><ns0:category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${commentId}</ns0:id><ns0:published>${commentDate}</ns0:published><ns0:author><ns0:name>${commentAuthor}</ns0:name><ns0:email>${commentEmail}</ns0:email><ns0:uri>${commentUrl}</ns0:uri></ns0:author><ns0:title type="text"><![CDATA[${commentContent.substring(0, 50)}...]]></ns0:title><ns0:content type="html"><![CDATA[${commentContent}]]></ns0:content><ns1:in-reply-to xmlns:ns1="http://purl.org/syndication/thread/1.0" ref="${postId}" type="application/atom+xml"/></ns0:entry>`;
+              // تنسيق محتوى التعليق مع تطبيق الخيارات
+              const formattedCommentContent = formatContent(commentContent, convertLinks, embedVideosOption);
+
+              commentsXML += `<ns0:entry><ns0:category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${commentId}</ns0:id><ns0:published>${commentDate}</ns0:published><ns0:author><ns0:name>${commentAuthor}</ns0:name><ns0:email>${commentEmail}</ns0:email><ns0:uri>${commentUrl}</ns0:uri></ns0:author><ns0:title type="text"><![CDATA[${commentContent.substring(0, 50)}...]]></ns0:title><ns0:content type="html"><![CDATA[${formattedCommentContent}]]></ns0:content><ns1:in-reply-to xmlns:ns1="http://purl.org/syndication/thread/1.0" ref="${postId}" type="application/atom+xml"/></ns0:entry>`;
             });
 
             // إضافة المقالة والتعليقات إلى المحتوى الحالي
