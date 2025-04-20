@@ -45,18 +45,6 @@
       width: 100%;
       height: 100%;
     }
-    /* تنسيق الصور */
-    .content-wrapper img {
-      display: block;
-      margin: 1rem 0;
-      max-width: 100%;
-      height: auto;
-    }
-    /* تنسيق الفقرات */
-    .content-wrapper p {
-      margin-bottom: 1rem;
-      line-height: 1.8;
-    }
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
@@ -130,12 +118,6 @@
           <option value="14px">صغير (14px)</option>
           <option value="16px">متوسط (16px)</option>
           <option value="18px">كبير (18px)</option>
-        </select>
-        <label class="block text-gray-700 mt-2 mb-2 font-medium" for="textAlign">محاذاة النص:</label>
-        <select id="textAlign" class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="justify">تبرير</option>
-          <option value="left">يسار</option>
-          <option value="center">وسط</option>
         </select>
       </div>
     </div>
@@ -278,15 +260,17 @@
       const urlPattern = /(^|\s)(https?:\/\/[^\s<>"']+)(?=\s|$|[.,!?])/g;
       const downloadDomains = ['mega.nz', 'dropbox.com', 'drive.google.com', 'mediafire.com'];
       return content.replace(urlPattern, (match, prefix, url) => {
+        // تجنب تحويل روابط YouTube إذا تم تحويلها بالفعل إلى iframe
         if (url.includes('youtube.com') || url.includes('youtu.be')) return match;
+        // التحقق إذا كان الرابط ينتمي إلى مواقع التحميل
         const isDownloadLink = downloadDomains.some(domain => url.includes(domain));
-        const linkColor = isDownloadLink ? '#e0245e' : '#1a73e8';
+        const linkColor = isDownloadLink ? '#e0245e' : '#1a73e8'; // لون وردي لروابط التحميل، أزرق للروابط العادية
         return `${prefix}<a href="${url}" style="color: ${linkColor}; text-decoration: underline; font-weight: ${isDownloadLink ? 'bold' : 'normal'};" target="_blank">${url}</a>`;
       });
     }
 
-    // تنسيق المحتوى مع تطبيق الخطوط المخصصة وتحسين التنسيق
-    async function formatContent(content, convertLinks, embedVideosOption, targetLang, videoWidth, customFont, fontFamily, fontSize, textAlign) {
+    // تنسيق المحتوى مع تطبيق الخطوط المخصصة
+    async function formatContent(content, convertLinks, embedVideosOption, targetLang, videoWidth, customFont, fontFamily, fontSize) {
       let formattedContent = content;
 
       // إزالة عناصر <a> و<h2> فقط، مع الإبقاء على <img> بجميع السمات
@@ -312,19 +296,9 @@
         formattedContent = await translateContent(formattedContent, targetLang);
       }
 
-      // تقسيم المحتوى إلى فقرات بناءً على الأسطر الفارغة
-      formattedContent = formattedContent.replace(/\n\s*\n/g, '</p><p>'); // تحويل الأسطر الفارغة إلى فقرات
-      formattedContent = `<p>${formattedContent}</p>`; // لف المحتوى بفقرات
-
-      // تحديد اتجاه النص بناءً على اللغة المستهدفة
-      const direction = targetLang === 'ar' ? 'rtl' : 'ltr';
-      const alignment = textAlign === 'justify' ? 'justify' : (textAlign === 'center' ? 'center' : (direction === 'rtl' ? 'right' : 'left'));
-
-      // تطبيق الخط المخصص وتنسيق النص
+      // تطبيق الخط المخصص إذا تم تفعيله
       if (customFont) {
-        formattedContent = `<div class="content-wrapper" style="font-family: '${fontFamily}', sans-serif; font-size: ${fontSize}; text-align: ${alignment}; direction: ${direction};">${formattedContent}</div>`;
-      } else {
-        formattedContent = `<div class="content-wrapper" style="text-align: ${alignment}; direction: ${direction};">${formattedContent}</div>`;
+        formattedContent = `<div style="font-family: '${fontFamily}', sans-serif; font-size: ${fontSize}; line-height: 1.6;">${formattedContent}</div>`;
       }
 
       return formattedContent;
@@ -343,7 +317,6 @@
       const customFont = document.getElementById('customFont').checked;
       const fontFamily = document.getElementById('fontFamily').value;
       const fontSize = document.getElementById('fontSize').value;
-      const textAlign = document.getElementById('textAlign').value;
       const status = document.getElementById('status');
 
       if (!fileInput.files.length) {
@@ -421,7 +394,7 @@
 
             // تنسيق المحتوى مع تطبيق الخيارات
             let updatedContent = replaceImageUrls(content, imagePath);
-            updatedContent = await formatContent(updatedContent, convertLinks, embedVideosOption, translateContentOption ? targetLanguage : '', videoWidth, customFont, fontFamily, fontSize, textAlign);
+            updatedContent = await formatContent(updatedContent, convertLinks, embedVideosOption, translateContentOption ? targetLanguage : '', videoWidth, customFont, fontFamily, fontSize);
             updatedContent = `${updatedContent}<br/><br/>Publication Date: <strong>${convertDate(item.pubDate._text)}</strong>`;
 
             // تحديث التقدم بعد معالجة المقالة
@@ -469,7 +442,7 @@
                 const commentDate = convertToISODate(comment['wp:comment_date']._text || item.pubDate._text, item.pubDate._text);
 
                 // تنسيق محتوى التعليق مع تطبيق الخيارات
-                const formattedCommentContent = await formatContent(commentContent, convertLinks, embedVideosOption, translateContentOption ? targetLanguage : '', videoWidth, customFont, fontFamily, fontSize, textAlign);
+                const formattedCommentContent = await formatContent(commentContent, convertLinks, embedVideosOption, translateContentOption ? targetLanguage : '', videoWidth, customFont, fontFamily, fontSize);
 
                 commentsXML += `<ns0:entry><ns0:category term="http://schemas.google.com/blogger/2008/kind#comment" scheme="http://schemas.google.com/g/2005#kind"/><ns0:id>${commentId}</ns0:id><ns0:published>${commentDate}</ns0:published><ns0:author><ns0:name>${commentAuthor}</ns0:name><ns0:email>${commentEmail}</ns0:email><ns0:uri>${commentUrl}</ns0:uri></ns0:author><ns0:title type="text"><![CDATA[${commentContent.substring(0, 50)}...]]></ns0:title><ns0:content type="html"><![CDATA[${formattedCommentContent}]]></ns0:content><ns1:in-reply-to xmlns:ns1="http://purl.org/syndication/thread/1.0" ref="${postId}" type="application/atom+xml"/></ns0:entry>`;
 
